@@ -1,2 +1,5 @@
 # mypy
 tfoptflow/models/
+data/
+checkpoints/
+__pycache__/

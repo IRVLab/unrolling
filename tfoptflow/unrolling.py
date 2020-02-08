@@ -21,8 +21,8 @@ import csv
 from matplotlib import pyplot as plt
 from sklearn import linear_model
 
-img0_path = '/home/jiawei/Desktop/data/tum/seq1/img0/'
-img1_path = '/home/jiawei/Desktop/data/tum/seq1/img1/'
+img0_path = '/home/jiawei/Workspace/unrolling/data/tum/seq1/img0/'
+img1_path = '/home/jiawei/Workspace/unrolling/data/tum/seq1/img1/'
 
 # TODO: Set device to use for inference
 # Here, we're using a GPU (use '/device:CPU:0' to run inference on the CPU)
@@ -30,7 +30,7 @@ gpu_devices = ['/device:GPU:0']
 controller = '/device:GPU:0'
 
 # TODO: Set the path to the trained model (make sure you've downloaded it first from http://bit.ly/tfoptflow)
-ckpt_path = '/home/jiawei/Desktop/sintel_gray_weights/pwcnet.sintel_gray.ckpt-54000'
+ckpt_path = '/home/jiawei/Workspace/unrolling/data/sintel_gray_weights/pwcnet.sintel_gray.ckpt-54000'
 
 # Configure the model for inference, starting with the default options
 nn_opts = deepcopy(_DEFAULT_PWCNET_TEST_OPTIONS)

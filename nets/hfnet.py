@@ -3,7 +3,11 @@ from keras.models import Input, Model
 from keras.layers import Conv2D, BatchNormalization, Activation, MaxPooling2D
 from keras.layers import add, Lambda, ZeroPadding2D, UpSampling2D
 from keras.optimizers import Adam
-from flow_error import getFlowCV
+from keras.applications import VGG19
+from keras import backend as K
+import numpy as np
+# local libs
+# from flow_error import getFlowCV
 
 # utility functions: identity block
 def identity_block(input_tensor, kernel_size, filters, stage, block):
@@ -22,7 +26,7 @@ def identity_block(input_tensor, kernel_size, filters, stage, block):
     x = BatchNormalization(axis=3, name=bn_name_base + '2b')(x)
     x = Activation('relu')(x)
     # sub-block3
-    x = Conv2D(filters3 , (1, 1), name=conv_name_base + '2c')(x)
+    x = Conv2D(filters3, (1, 1), name=conv_name_base + '2c')(x)
     x = BatchNormalization(axis=3, name=bn_name_base + '2c')(x)
     # output activation
     x = add([x, input_tensor])
@@ -39,7 +43,7 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2))
     conv_name_base = 'res' + str(stage) + block + '_branch'
     bn_name_base = 'bn' + str(stage) + block + '_branch'
     # sub-block1
-    x = Conv2D(filters1, (1, 1) , strides=strides, name=conv_name_base + '2a')(input_tensor)
+    x = Conv2D(filters1, (1, 1), strides=strides, name=conv_name_base + '2a')(input_tensor)
     x = BatchNormalization(axis=3, name=bn_name_base + '2a')(x)
     x = Activation('relu')(x)
     # sub-block2
@@ -58,7 +62,7 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2))
     return x
 
 
-def get_resnet_encoder(input_height=224, input_width=224, channels=3):
+def get_resnet_encoder(input_height=224, input_width=224, channels=1):
     img_input = Input(shape=(input_height, input_width, channels))
     # sub-block1
     x = ZeroPadding2D((3, 3))(img_input)
@@ -111,7 +115,8 @@ def hfnet_decoder(fin):
 	f3 = ZeroPadding2D((1,1))(f3)
 	f3 = Conv2D(32, (3, 3), padding='valid')(f3)
 	f3 = BatchNormalization()(f3)
-	out = Conv2D(3, (3, 3), padding='same', activation='tanh')(f3)
+	out = Conv2D(1, (3, 3), padding='same', activation='tanh')(f3) 
+        # output shape: <batch-size, 256, 320, 1>
 	return out
 
 
@@ -120,25 +125,67 @@ class Res_HFNet():
     """
     def __init__(self, im_shape):
         self.im_shape = im_shape
-        self.encoder_level = 3
+        self.encoder_level = 2
+        self.model = self.build_hfnet()
+        # for VGG-based content loss
+        self.vgg = self.build_vgg19()
+        self.vgg.compile(loss='mse', optimizer=Adam(1e-3,0.5), metrics=['accuracy'])
+        ## do similar thing for PWC-Net
+        #self.PWC = self.build_PWC()
 
-    def create_model(self):
-	img_input, levels = get_resnet_encoder(input_height=self.im_shape[0], input_width=self.im_shape[1])
-	features = levels[self.encoder_level]
-	out = hfnet_decoder(features)
-	return Model(input=img_input, output=out)
+    def build_hfnet(self):
+        img_input, levels = get_resnet_encoder(input_height=self.im_shape[0], input_width=self.im_shape[1])
+        features = levels[self.encoder_level]
+        out = hfnet_decoder(features); print(out)
+        return Model(input=img_input, output=out)
 
+
+    def build_vgg19(self):
+        # features of pre-trained VGG19 model at the third block
+        vgg = VGG19(weights="imagenet", include_top=False,input_shape = (224,224,3))
+        # Make trainable as False
+        vgg.trainable = False
+        for l in vgg.layers:
+            l.trainable = False
+        vgg.outputs = [vgg.get_layer('block5_conv4').output]
+        img = Input(shape=(self.im_shape[0], self.im_shape[1], 3))
+        img_features = vgg(img)
+        return Model(img, img_features)
+
+    def flow_loss_VGG(self, org_content, gen_content):
+        # convert to grey if needed
+        org_content = tf.image.grayscale_to_rgb(org_content, name=None)
+        gen_content = tf.image.grayscale_to_rgb(gen_content, name=None)
+        # main part
+        f_true = self.vgg(org_content)
+        f_pred = self.vgg(gen_content)
+        return K.mean(K.square(f_true-f_pred))
+
+
+    def build_PWC(self):
+        ## load the model
+        ## make trainable = False
+        ## setup input output
+        #return Model(img_pairs, flow_y_dirrection)
+        pass
+
+    def flow_loss_PWC(self, org_content, gen_content):
+        gs_im = (org_content+1.0)*127.5 # [-1,1] => [0,255]
+        gs_from_rs = (gen_content+1.0)*127.5 # [-1,1] => [0,255]
+        #zero_flow  = self.PWC(pair: gs_im+gs_im)
+        #error_flow = self.PWC(pair: gs_from_rs+gs_im)
+        #return K.mean(K.square(zero_flow-error_flow))
+        pass
+
+   
     def flow_loss_CV2(self, gen_im_tensors, gs_im_tensors):
+        # does not work yet
         gen_im = (gen_im_tensors+1.0)*127.5 # [-1,1] => [0,255]
         gs_im  = (gs_im_tensors+1.0)*127.5 # [-1,1] => [0,255]
-        #gen_im = Lambda(lambda x: x[0,:,:,:])(gen_im_tensors)
-
-        print (gen_im)
-        return 0.5#getFlowCV(gen_im, gs_im)
-   
-
-
-
+        # needs to be converted to np array and then use cv2 functions
+        loss = getFlowCV(gen_np, gs_np) 
+        # now loss is a scalar/float, needs to be a tensor
+        return loss 
 
 
 

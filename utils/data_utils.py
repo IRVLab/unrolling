@@ -91,6 +91,9 @@ class dataLoaderTUM():
             imgs_gs = preprocess(np.array(imgs_gs))
             imgs_rs = preprocess(np.array(imgs_rs))
             #return imgs_gs, imgs_rs
+            imgs_gs = np.expand_dims(imgs_gs, -1) # (b, h, w, 1)
+            imgs_rs = np.expand_dims(imgs_rs, -1) # (b, h, w, 1)
+            #print imgs_gs.shape, imgs_rs.shape
             yield imgs_gs, imgs_rs
 
 
