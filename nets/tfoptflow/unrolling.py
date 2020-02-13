@@ -65,7 +65,7 @@ def draw_flow(img, flow, mask, step=2):
 
     return vis
 
-def cal_flow_err(flow, mask):
+def cal_err_mask(flow, mask):
     h, w = flow.shape[:2]
 
     err = 0.0
@@ -79,7 +79,7 @@ def cal_flow_err(flow, mask):
     return err / count
 
 
-def calFlowAndError(img_pairs):
+def cal_flow_err(img_pairs):
     # Estimate optical flow using PWC-New
     flows = nn.predict_from_img_pairs(img_pairs, batch_size=1, verbose=False)
 
@@ -87,7 +87,7 @@ def calFlowAndError(img_pairs):
     errs = []
     for i in range(len(img_pairs)):
         edges = cv2.Canny(img_pairs[i][0],20,50)
-        errs_new = cal_flow_err(flows[i], edges)
+        errs_new = cal_err_mask(flows[i], edges)
         print(errs_new)
         errs.append(errs_new)
         cv2.imshow('flow', draw_flow(img_pairs[i][0], flows[i], edges))
@@ -108,11 +108,11 @@ def main():
         img1, img2 = cv2.imread(img_path1), cv2.imread(img_path2)
         img_pairs.append((img1, img2))
         if len(img_pairs)>10:
-            err_new = calFlowAndError(img_pairs)
+            err_new = cal_flow_err(img_pairs)
             errs.append(err_new)
             img_pairs = []
 
-    err_new = calFlowAndError(img_pairs)
+    err_new = cal_flow_err(img_pairs)
     errs.append(err_new)
     print(f'\n\n{errs}')
     # np.savetxt('errs.txt', np.asarray(errs).ravel())

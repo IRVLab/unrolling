@@ -56,7 +56,7 @@ class ModelBase:
                     self.opts['cyclic_lr_stepsize'] = 50
                     self.opts['max_steps'] = 500  # max number of training iterations (i.e., batches to run)
 
-        tf.reset_default_graph()
+        # tf.reset_default_graph()
         self.graph = tf.Graph()
         with self.graph.as_default():
             # Configure a TF session, if one doesn't already exist

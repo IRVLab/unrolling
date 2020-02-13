@@ -36,7 +36,7 @@ def getPaths(data_dir):
     return np.asarray(image_paths)
 
 
-def read_and_resize(paths, res=(480, 640), mode_='RGB'):
+def read_and_resize(paths, res=(480, 640)):
     img = cv2.imread(paths, 0).astype(np.float)
     img = cv2.resize(img, res)
     return img

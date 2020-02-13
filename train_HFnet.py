@@ -8,8 +8,8 @@ from scipy import misc
 import keras.backend as K
 from keras.optimizers import Adam
 # local libs
+from data_utils.data_utils import dataLoaderTUM
 from nets.hfnet import Res_HFNet
-from utils.data_utils import dataLoaderTUM
 
 ## dataset and experiment directories
 dataset_name = "TUM"
@@ -18,7 +18,7 @@ data_dir = "/home/jiawei/Workspace/unrolling/data/tum"
 seq = 1 # None for all
 
 ## input/output shapes
-im_shape = (256, 320)
+im_shape = (256, 320) # should be multiples of 64 to avoid PWC padding
 data_loader = dataLoaderTUM(data_path=data_dir, seq_no=seq, res=(im_shape[1], im_shape[0])) 
 # training parameters
 num_epochs = 20
@@ -30,7 +30,7 @@ num_step = num_epochs*steps_per_epoch
 
 model_name = "HFNet"
 model_loader = Res_HFNet(im_shape)
-model_loader.model.compile(optimizer=Adam(1e-4, 0.5), loss=model_loader.flow_loss_VGG)
+model_loader.model.compile(optimizer=Adam(1e-4, 0.5), loss=model_loader.flow_loss_PWC)
 
 # checkpoint directory
 checkpoint_dir = os.path.join("checkpoints/", dataset_name)

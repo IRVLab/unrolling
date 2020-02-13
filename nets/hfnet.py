@@ -6,6 +6,11 @@ from keras.optimizers import Adam
 from keras.applications import VGG19
 from keras import backend as K
 import numpy as np
+from copy import deepcopy
+
+import sys
+sys.path.append(sys.path[0]+'/nets/tfoptflow')
+from model_pwcnet import ModelPWCNet, _DEFAULT_PWCNET_TEST_OPTIONS, nn
 # local libs
 # from flow_error import getFlowCV
 
@@ -119,6 +124,36 @@ def hfnet_decoder(fin):
         # output shape: <batch-size, 256, 320, 1>
 	return out
 
+def getFlowPWC(img_pair):
+    gpu_devices = ['/device:GPU:0']  
+    controller = '/device:GPU:0'
+    ckpt_path = '/home/jiawei/Workspace/unrolling/data/sintel_gray_weights/pwcnet.sintel_gray.ckpt-54000'
+
+    # Configure the model for inference, starting with the default options
+    nn_opts = deepcopy(_DEFAULT_PWCNET_TEST_OPTIONS)
+    nn_opts['verbose'] = False
+    nn_opts['ckpt_path'] = ckpt_path
+    nn_opts['batch_size'] = 1
+    nn_opts['gpu_devices'] = gpu_devices
+    nn_opts['controller'] = controller
+
+    # We're running the PWC-Net-large model in quarter-resolution mode
+    # That is, with a 6 level pyramid, and upsampling of level 2 by 4 in each dimension as the final flow prediction
+    nn_opts['use_dense_cx'] = True
+    nn_opts['use_res_cx'] = True
+    nn_opts['pyr_lvls'] = 6
+    nn_opts['flow_pred_lvl'] = 2
+    nn_opts['resize'] = False
+
+    # The size of the images in this dataset are not multiples of 64, while the model generates flows padded to multiples
+    # of 64. Hence, we need to crop the predicted flows to their original size
+    # nn_opts['adapt_info'] = (1, 436, 1024, 2)
+
+    # pwc = ModelPWCNet(mode='test', options=nn_opts)
+    flow, _ = nn(img_pair)
+
+    return flow
+
 
 class Res_HFNet():
     """ Proposed model
@@ -131,7 +166,7 @@ class Res_HFNet():
         self.vgg = self.build_vgg19()
         self.vgg.compile(loss='mse', optimizer=Adam(1e-3,0.5), metrics=['accuracy'])
         ## do similar thing for PWC-Net
-        #self.PWC = self.build_PWC()
+        self.PWC = self.build_PWC()
 
     def build_hfnet(self):
         img_input, levels = get_resnet_encoder(input_height=self.im_shape[0], input_width=self.im_shape[1])
@@ -150,7 +185,7 @@ class Res_HFNet():
         vgg.outputs = [vgg.get_layer('block5_conv4').output]
         img = Input(shape=(self.im_shape[0], self.im_shape[1], 3))
         img_features = vgg(img)
-        return Model(img, img_features)
+        return Model(input=img, output=img_features)
 
     def flow_loss_VGG(self, org_content, gen_content):
         # convert to grey if needed
@@ -160,22 +195,6 @@ class Res_HFNet():
         f_true = self.vgg(org_content)
         f_pred = self.vgg(gen_content)
         return K.mean(K.square(f_true-f_pred))
-
-
-    def build_PWC(self):
-        ## load the model
-        ## make trainable = False
-        ## setup input output
-        #return Model(img_pairs, flow_y_dirrection)
-        pass
-
-    def flow_loss_PWC(self, org_content, gen_content):
-        gs_im = (org_content+1.0)*127.5 # [-1,1] => [0,255]
-        gs_from_rs = (gen_content+1.0)*127.5 # [-1,1] => [0,255]
-        #zero_flow  = self.PWC(pair: gs_im+gs_im)
-        #error_flow = self.PWC(pair: gs_from_rs+gs_im)
-        #return K.mean(K.square(zero_flow-error_flow))
-        pass
 
    
     def flow_loss_CV2(self, gen_im_tensors, gs_im_tensors):
@@ -187,5 +206,44 @@ class Res_HFNet():
         # now loss is a scalar/float, needs to be a tensor
         return loss 
 
+    def cal_err_mask(flow, mask):
+        h, w = flow.shape[:2]
 
+        err = 0.0
+        count = 0
+        for di in range(0,h,10):
+            for dj in range(0,w,10):
+                if mask[di, dj]: 
+                    xf, yf = flow[di,dj].T
+                    err = err + yf*yf
+                    count = count + 1
+        return err / count
+
+    def build_PWC(self):
+        img_pair = Input(shape=(2, self.im_shape[0], self.im_shape[1], 3))
+
+        flow = Lambda(getFlowPWC)(img_pair)
+
+        return Model(input=img_pair, output=flow)
+
+    def flow_loss_PWC(self, gen_im_tensors, gs_im_tensors):
+        # TODO: why does the output range from -1 tp 1?
+        gen_im_rescaled = (gen_im_tensors+1.0)/2.0 # [-1,1] => [0,1]
+        gs_im_rescaled  = (gs_im_tensors+1.0)/2.0 # [-1,1] => [0,1]
+        gen_im = tf.image.grayscale_to_rgb(gen_im_rescaled, name=None)
+        gs_im = tf.image.grayscale_to_rgb(gs_im_rescaled, name=None)
+        img_pair = [(gs_im, gen_im)]
+
+        # Estimate optical flow using PWC-New
+        flows = self.PWC(img_pair)
+
+        # # Calculate errors
+        # errs = []
+        # for i in range(len(img_pairs)):
+        #     edges = cv2.Canny(img_pairs[i][0],20,50)
+        #     errs_new = cal_err_mask(flows[i], edges)
+        #     print(errs_new)
+        #     errs.append(errs_new)
+        
+        return 1
 
