@@ -1,5 +1,7 @@
 # mypy
-tfoptflow/models/
-data/
+VI-Stereo-DSO/build
+VI-Stereo-DSO/result.txt
+pwc_models/
 checkpoints/
 __pycache__/
+data/
