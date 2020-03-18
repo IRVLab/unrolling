@@ -3,6 +3,8 @@ from keras.models import Input, Model
 from keras.layers import Conv2D, Conv2DTranspose, BatchNormalization, Activation
 from keras.layers import add, Lambda
 from keras import backend as K
+import tensorflow as tf
+import numpy as np
 
 def plainEncoderBlock(input_tensor, filters, strides, stage):
     x = Conv2D(filters, kernel_size=3, strides=strides, padding='same', name='plainEncoderBlock_'+str(stage)+'ac')(input_tensor)
@@ -110,12 +112,23 @@ def DecoderNet(fin):
     return out
 
 
-class Res_HFNet():
-    """ Proposed model
-    """
+class UnrollNet():
     def __init__(self, im_shape):
         img_input = Input(shape=(im_shape[0], im_shape[1], 1))
         features = EncoderNet(img_input)
         flow_output = DecoderNet(features) 
-        # HFNet will output the PWC flow, which we will find mse loss against zero matrix
         self.model = Model(input=img_input, output=flow_output)
+
+    def flowLoss(self, y_true, y_pred):
+        diff = tf.where(tf.is_nan(y_true), tf.zeros_like(y_true), y_true-y_pred)
+        mask = tf.math.is_nan(y_true)
+        mask = 1 - K.cast(mask, K.floatx())
+        loss = K.sum(K.square(diff)) / K.sum(mask)
+        return loss 
+
+
+if __name__=="__main__":
+    unrollnet = UnrollNet((3,4))
+    y_true = np.array([np.NaN,1,2,3], dtype=np.float32)
+    y_pred = np.array([3,3,2,3], dtype=np.float32)
+    print(K.eval(unrollnet.flowLoss(y_true, y_pred)))
