@@ -199,7 +199,7 @@ class ModelPWCNet:
             self.saver = tf.train.Saver()
             
             # Initialize the graph with the content of the checkpoint
-            self.last_ckpt = os.path.join(pathlib.Path(__file__).parent.absolute(), self.opts['ckpt_path'])
+            self.last_ckpt = os.path.join(os.getcwd(), self.opts['ckpt_path'])
             assert(self.last_ckpt is not None)
             self.saver.restore(self.sess, self.last_ckpt)
 
@@ -313,12 +313,12 @@ class ModelPWCNet:
                     # reuse is set to True because we want to learn a single set of weights for the pyramid
                     # kernel_initializer = 'he_normal' or tf.keras.initializers.he_normal(seed=None)
                     f = num_chann[lvl]
-                    x = tf.layers.conv2d(x, f, 3, 2, 'same', kernel_initializer=init, name=f'conv{lvl}a', reuse=reuse)
-                    x = tf.nn.leaky_relu(x, alpha=0.1)  # , name=f'relu{lvl+1}a') # default alpha is 0.2 for TF
-                    x = tf.layers.conv2d(x, f, 3, 1, 'same', kernel_initializer=init, name=f'conv{lvl}aa', reuse=reuse)
-                    x = tf.nn.leaky_relu(x, alpha=0.1)  # , name=f'relu{lvl+1}aa')
-                    x = tf.layers.conv2d(x, f, 3, 1, 'same', kernel_initializer=init, name=f'conv{lvl}b', reuse=reuse)
-                    x = tf.nn.leaky_relu(x, alpha=0.1, name=f'{name}{lvl}')
+                    x = tf.layers.conv2d(x, f, 3, 2, 'same', kernel_initializer=init, name='conv{}a'.format(lvl), reuse=reuse)
+                    x = tf.nn.leaky_relu(x, alpha=0.1)  
+                    x = tf.layers.conv2d(x, f, 3, 1, 'same', kernel_initializer=init, name='conv{}aa'.format(lvl), reuse=reuse)
+                    x = tf.nn.leaky_relu(x, alpha=0.1) 
+                    x = tf.layers.conv2d(x, f, 3, 1, 'same', kernel_initializer=init, name='conv{}b'.format(lvl), reuse=reuse)
+                    x = tf.nn.leaky_relu(x, alpha=0.1, name=str(name)+str(lvl))
                     pyr.append(x)
         return c1, c2
 
@@ -326,12 +326,12 @@ class ModelPWCNet:
     # PWC-Net warping helpers
     ###
     def warp(self, c2, sc_up_flow, lvl, name='warp'):
-        op_name = f'{name}{lvl}'
+        op_name = str(name)+str(lvl)
         with tf.name_scope(name):
             return dense_image_warp(c2, sc_up_flow, name=op_name)
 
     def deconv(self, x, lvl, name='up_flow'):
-        op_name = f'{name}{lvl}'
+        op_name = str(name)+str(lvl)
         with tf.variable_scope('upsample'):
             # tf.layers.conv2d_transpose(inputs, filters, kernel_size, strides=(1, 1), padding='valid', ... , name)
             return tf.layers.conv2d_transpose(x, 2, 4, 2, 'same', name=op_name)
@@ -340,7 +340,7 @@ class ModelPWCNet:
     # Cost Volume helpers
     ###
     def corr(self, c1, warp, lvl, name='corr'):
-        op_name = f'corr{lvl}'
+        op_name = 'corr'+str(lvl)
         with tf.name_scope(name):
             return cost_volume(c1, warp, self.opts['search_range'], op_name)
 
@@ -348,7 +348,7 @@ class ModelPWCNet:
     # Optical flow estimator helpers
     ###
     def predict_flow(self, corr, c1, up_flow, up_feat, lvl, name='predict_flow'):
-        op_name = f'flow{lvl}'
+        op_name = 'flow'+str(lvl)
         init = tf.keras.initializers.he_normal()
         with tf.variable_scope(name):
             if c1 is None and up_flow is None and up_feat is None:
@@ -356,25 +356,25 @@ class ModelPWCNet:
             else:
                 x = tf.concat([corr, c1, up_flow, up_feat], axis=3)
 
-            conv = tf.layers.conv2d(x, 128, 3, 1, 'same', kernel_initializer=init, name=f'conv{lvl}_0')
+            conv = tf.layers.conv2d(x, 128, 3, 1, 'same', kernel_initializer=init, name='conv{}_0'.format(lvl))
             act = tf.nn.leaky_relu(conv, alpha=0.1)  # default alpha is 0.2 for TF
             x = tf.concat([act, x], axis=3) 
 
-            conv = tf.layers.conv2d(x, 128, 3, 1, 'same', kernel_initializer=init, name=f'conv{lvl}_1')
+            conv = tf.layers.conv2d(x, 128, 3, 1, 'same', kernel_initializer=init, name='conv{}_1'.format(lvl))
             act = tf.nn.leaky_relu(conv, alpha=0.1)
             x = tf.concat([act, x], axis=3) 
 
-            conv = tf.layers.conv2d(x, 96, 3, 1, 'same', kernel_initializer=init, name=f'conv{lvl}_2')
+            conv = tf.layers.conv2d(x, 96, 3, 1, 'same', kernel_initializer=init, name='conv{}_2'.format(lvl))
             act = tf.nn.leaky_relu(conv, alpha=0.1)
             x = tf.concat([act, x], axis=3) 
 
-            conv = tf.layers.conv2d(x, 64, 3, 1, 'same', kernel_initializer=init, name=f'conv{lvl}_3')
+            conv = tf.layers.conv2d(x, 64, 3, 1, 'same', kernel_initializer=init, name='conv{}_3'.format(lvl))
             act = tf.nn.leaky_relu(conv, alpha=0.1)
             x = tf.concat([act, x], axis=3) 
 
-            conv = tf.layers.conv2d(x, 32, 3, 1, 'same', kernel_initializer=init, name=f'conv{lvl}_4')
+            conv = tf.layers.conv2d(x, 32, 3, 1, 'same', kernel_initializer=init, name='conv{}_4'.format(lvl))
             act = tf.nn.leaky_relu(conv, alpha=0.1)  # will also be used as an input by the context network
-            upfeat = tf.concat([act, x], axis=3, name=f'upfeat{lvl}') 
+            upfeat = tf.concat([act, x], axis=3, name='upfeat'+str(lvl)) 
 
             flow = tf.layers.conv2d(upfeat, 2, 3, 1, 'same', name=op_name)
 
@@ -384,22 +384,22 @@ class ModelPWCNet:
     # PWC-Net context network helpers
     ###
     def refine_flow(self, feat, flow, lvl, name='ctxt'):
-        op_name = f'refined_flow{lvl}'
+        op_name = 'refined_flow'+str(lvl)
         init = tf.keras.initializers.he_normal()
         with tf.variable_scope(name):
-            x = tf.layers.conv2d(feat, 128, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name=f'dc_conv{lvl}1')
+            x = tf.layers.conv2d(feat, 128, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name='dc_conv{}1'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)  # default alpha is 0.2 for TF
-            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=2, kernel_initializer=init, name=f'dc_conv{lvl}2')
+            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=2, kernel_initializer=init, name='dc_conv{}2'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=4, kernel_initializer=init, name=f'dc_conv{lvl}3')
+            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=4, kernel_initializer=init, name='dc_conv{}3'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 96, 3, 1, 'same', dilation_rate=8, kernel_initializer=init, name=f'dc_conv{lvl}4')
+            x = tf.layers.conv2d(x, 96, 3, 1, 'same', dilation_rate=8, kernel_initializer=init, name='dc_conv{}4'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 64, 3, 1, 'same', dilation_rate=16, kernel_initializer=init, name=f'dc_conv{lvl}5')
+            x = tf.layers.conv2d(x, 64, 3, 1, 'same', dilation_rate=16, kernel_initializer=init, name='dc_conv{}5'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 32, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name=f'dc_conv{lvl}6')
+            x = tf.layers.conv2d(x, 32, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name='dc_conv{}6'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 2, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name=f'dc_conv{lvl}7')
+            x = tf.layers.conv2d(x, 2, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name='dc_conv{}7'.format(lvl))
 
             return tf.add(flow, x, name=op_name)
 

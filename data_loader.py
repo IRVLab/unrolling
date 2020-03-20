@@ -5,27 +5,21 @@ import cv2
 import csv
 
 class dataLoader():
-    def __init__(self, data_path, seq_no=1):
+    def __init__(self, data_path, seqs):
         self.rs_folder = "cam1/images/"
         self.fl_folder = "cam1/flows_gs2rs/"
-        self.getTrainPaths(data_path, seq_no)
+        self.getTrainPaths(data_path, seqs)
 
-    def getTrainPaths(self, data_path, seq_no):
-        # if None, train all together
-        if seq_no not in range(10): 
-            all_sets = ["seq"+str(i) for i in range(10)]
-        else:
-            all_sets = ["seq"+str(seq_no)]
+    def getTrainPaths(self, data_path, seqs):
         # get all paths
         self.all_rs_paths, self.all_fl_paths = [], []
-        for p in all_sets:
-            train_dir = os.path.join(data_path, p)
+        for seq in seqs:
+            train_dir = os.path.join(data_path, 'seq'+str(seq))
             rs_paths, fl_paths = self.getPairedPaths(train_dir)
             self.all_rs_paths += rs_paths
             self.all_fl_paths += fl_paths
 
         self.num_train = len(self.all_fl_paths)
-        print (f"Loaded {self.num_train} data for training") 
 
     def getPairedPaths(self, data_dir):
         rs_files = os.listdir(os.path.join(data_dir, self.rs_folder))
@@ -40,21 +34,28 @@ class dataLoader():
         img_rs = cv2.imread(self.all_rs_paths[0], 0).astype(np.float)
         return img_rs.shape[:2]
 
-    def loadBatch(self, i, batch_size=1):
-        batch_rs = self.all_rs_paths[i*batch_size:(i+1)*batch_size]
-        batch_fl = self.all_fl_paths[i*batch_size:(i+1)*batch_size]
+    def load(self, i):
+        img_rs = cv2.imread(self.all_rs_paths[i], 0).astype(np.float)
+        img_rs = np.array(img_rs, dtype=np.uint8)
+        img_rs = np.expand_dims(img_rs, -1) # (h, w, 1)
 
+        flow = np.load(self.all_fl_paths[i])
+        
+        return img_rs, flow
+
+    def loadAll(self):
         imgs_rs, flows = [], []
-        for idx in range(len(batch_rs)): 
-            img_rs = cv2.imread(batch_rs[idx], 0).astype(np.float)
+        for i in range(len(self.all_rs_paths)): 
+            img_rs = cv2.imread(self.all_rs_paths[i], 0).astype(np.float)
             imgs_rs.append(img_rs)
-            flow = np.load(batch_fl[idx])
+            flow = np.load(self.all_fl_paths[i])
             flows.append(flow)
 
         imgs_rs = np.array(imgs_rs, dtype=np.uint8)
+        imgs_rs = np.expand_dims(imgs_rs, -1) # (b, h, w, 1)
+
         flows = np.array(flows, dtype=np.float32)
 
-        imgs_rs = np.expand_dims(imgs_rs, -1) # (b, h, w, 1)
         return imgs_rs, flows
 
 

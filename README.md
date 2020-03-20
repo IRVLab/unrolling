@@ -1,4 +1,4 @@
-# unrolling
+# Rectify Rolling distortion
 1. TUM dataset preprocess
 ```
 python3 tum_preprocess.py

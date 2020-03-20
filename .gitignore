@@ -1,7 +1,5 @@
-# mypy
-VI-Stereo-DSO/build
-VI-Stereo-DSO/result.txt
 pwc_models/
 checkpoints/
 __pycache__/
 data/
+*.pyc

@@ -1,13 +1,40 @@
+from __future__ import absolute_import,division,print_function
 import numpy as np
 from numpy import linalg as LA
-from scipy.stats import norm
+from scipy.stats import norm as norm_dist
 
-def castRay(cam,ray):
-    ru = ray[0,0] / ray[2,0]
-    rv = ray[1,0] / ray[2,0]
-    u = ru*cam[0] + cam[2]
-    v = rv*cam[1] + cam[3]
-    return [int(u+0.5),int(v+0.5)]
+# @jit
+def interpolateDepth(depth,u,v):
+    h,w = depth.shape[:2]
+
+    u0,v0 = int(u),int(v)
+    u1 = u0+1 if u0<(w-1) else u0
+    v1 = v0+1 if v0<(h-1) else v0
+
+    Is = (depth[v0,u0],depth[v1,u0],depth[v0,u1],depth[v1,u1])
+    Ws = ((u1-u)*(v1-v),(u1-u)*(v-v0),(u-u0)*(v1-v),(u-u0)*(v-v0))
+
+    sum_I = sum_W = 0.0
+    for i in range(4):
+        if not np.isnan(Is[i]):
+            sum_I += Ws[i]*Is[i]
+            sum_W += Ws[i]
+
+    res = sum_I/sum_W if sum_W>0 else np.nan
+    # print([res,Is])
+
+    return res
+
+def transferPoint(u0,v0,depth0,T_1_0,cam0,cam1):
+    d0 = interpolateDepth(depth0,u0,v0)
+    if np.isnan(d0): return [np.nan,np.nan,np.nan]
+    
+    X0 = getRay(cam0,(u0,v0))*d0
+    X1 = np.matmul(T_1_0[0:3,0:3],X0)+np.expand_dims(T_1_0[0:3,3],-1)
+    u1 = X1[0,0]/X1[2,0]*cam1[0] + cam1[2]
+    v1 = X1[1,0]/X1[2,0]*cam1[1] + cam1[3]
+    d1 = LA.norm(X1)
+    return [u1,v1,d1]
 
 def getRay(cam,uv):
     ray_uv = np.ones(3,dtype=np.float32)
@@ -15,12 +42,21 @@ def getRay(cam,uv):
     ray_uv[1] = (uv[1]-cam[3]) / cam[1]
     return np.expand_dims(ray_uv / LA.norm(ray_uv),-1)
 
+def filterDepthByFlow(cam,seeds,flow_cur2fi,T_cur_fi):
+    for i in range(len(seeds)):
+        [cu,cv] = seeds[i][0]
+        if not np.isnan(flow_cur2fi[cv,cu,0]):
+            fu,fv = flow_cur2fi[cv,cu,:]
+            updatedSeed = updateSeed(cam,seeds[i],(cu+fu,cv+fv),T_cur_fi)
+            seeds[i] = updatedSeed
+    return seeds
+
 def updateSeed(cam,seed,uv_cur,T_ref_cur):
     uv_ref = seed[0]
     z = depthFromTriangulation(cam,T_ref_cur,uv_ref,uv_cur)
     if z>=0:
         tau = computeTau(cam,T_ref_cur,uv_ref,z)
-        tau_inverse = 0.5 * (1.0/np.max([0.0000001,z-tau]) - 1.0/(z+tau))
+        tau_inverse = 0.5 * (1.0/max(0.0000001,z-tau) - 1.0/(z+tau))
         seed=updateSeedDist(seed,1.0/z,tau_inverse*tau_inverse)
     return seed
 
@@ -53,21 +89,22 @@ def computeTau(cam,T_ref_cur,uv_ref,z):
     beta_plus = beta + px_error_angle
     gamma_plus = np.pi-alpha-beta_plus # triangle angles sum to PI
     z_plus = t_norm*np.sin(beta_plus)/np.sin(gamma_plus) # law of sines
-    return (z_plus - z) # tau
+    tau = z_plus - z
+    return tau[0,0] # tau is 1x1 matrix
     
 def updateSeedDist(seed,x,tau2):
-    [uv,a,b,mu,z_range,sigma2] = seed
+    [uv,a,b,mu,z_range,sigma2,vc] = seed
 
-    if np.isnan(mu):
+    if vc==0:
         mu = x
         sigma2 = tau2
-        seed = (uv,a,b,mu,z_range,sigma2)
+        seed = (uv,a,b,mu,z_range,sigma2,vc+1)
     else:
         norm_scale = np.sqrt(sigma2 + tau2)
         if not np.isnan(norm_scale):
             s2 = 1.0/(1.0/sigma2 + 1.0/tau2)
             m = s2*(mu/sigma2 + x/tau2)
-            C1 = a/(a+b) * norm.pdf(x,mu,norm_scale)
+            C1 = a/(a+b) * norm_dist.pdf(x,mu,norm_scale)
             C2 = b/(a+b) * 1.0/z_range
             normalization_constant = C1 + C2
             C1 /= normalization_constant
@@ -79,10 +116,9 @@ def updateSeedDist(seed,x,tau2):
             # update parameters
             mu_new = C1*m+C2*mu
             sigma2 = C1*(s2 + m*m) + C2*(sigma2 + mu*mu) - mu_new*mu_new
-            # print([x,mu,mu_new])
             mu = mu_new
             a = (e - f) / (f - e / f)
             b = a * (1.0 - f) / f
-            seed = (uv,a,b,mu,z_range,sigma2)
+            seed = (uv,a,b,mu,z_range,sigma2,vc+1)
     
     return seed

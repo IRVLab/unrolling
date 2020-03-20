@@ -88,7 +88,9 @@ def EncoderNet(img_input):
     # en_layer4
     x = resEncoderBlock(x, filters=512, strides=2, stage=4)
     # en_layer5
-    x = resEncoderBlock(x, filters=512, strides=2, stage=5)
+    x = resEncoderBlock(x, filters=1024, strides=2, stage=5)
+    # en_layer6
+    x = resEncoderBlock(x, filters=1024, strides=1, stage=6)
 
     features = x 
     
@@ -96,8 +98,10 @@ def EncoderNet(img_input):
 
 
 def DecoderNet(fin):
+    # de_layer6
+    x = resDecoderBlock(fin, filters=1024, strides=1, stage=6)
     # de_layer5
-    x = resDecoderBlock(fin, filters=512, strides=2, stage=5)
+    x = resDecoderBlock(fin, filters=1024, strides=2, stage=5)
     # de_layer4
     x = resDecoderBlock(x, filters=256, strides=2, stage=4)
     # de_layer3
@@ -120,15 +124,13 @@ class UnrollNet():
         self.model = Model(input=img_input, output=flow_output)
 
     def flowLoss(self, y_true, y_pred):
+        # mask out pixels without valid flow(depth)
+        mask = tf.is_nan(y_true)
+        px_v_count = K.sum(1 - K.cast(mask, K.floatx()))
+
+        # calculate EPE loss
         diff = tf.where(tf.is_nan(y_true), tf.zeros_like(y_true), y_true-y_pred)
-        mask = tf.math.is_nan(y_true)
-        mask = 1 - K.cast(mask, K.floatx())
-        loss = K.sum(K.square(diff)) / K.sum(mask)
+
+        # MSE loss
+        loss = K.sum(K.square(diff)) / px_v_count
         return loss 
-
-
-if __name__=="__main__":
-    unrollnet = UnrollNet((3,4))
-    y_true = np.array([np.NaN,1,2,3], dtype=np.float32)
-    y_pred = np.array([3,3,2,3], dtype=np.float32)
-    print(K.eval(unrollnet.flowLoss(y_true, y_pred)))
