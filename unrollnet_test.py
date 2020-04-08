@@ -4,50 +4,68 @@ import cv2
 import numpy as np
 from data_loader import dataLoader
 from unrollnet import UnrollNet
+from keras.layers import Lambda
+from keras.optimizers import Adam
+import tensorflow as tf
+import shutil
+from tqdm import tqdm
 
-def rectify_img_by_flow(img, flow_gs2rs):
+def rectify_img_by_flow(img, flow):
     h, w = img.shape[:2]
     rectified_img = np.zeros_like(img)
     indy, indx = np.indices((h, w), dtype=np.float32)
-    map_x = indx.reshape(h, w).astype(np.float32) + flow_gs2rs[:,:,0]
-    map_y = indy.reshape(h, w).astype(np.float32) + flow_gs2rs[:,:,1]
+    map_x = indx.reshape(h, w).astype(np.float32) + flow[:,:,0]
+    map_y = indy.reshape(h, w).astype(np.float32) + flow[:,:,1]
     rectified_img = cv2.remap(cv2.cvtColor(img, cv2.COLOR_GRAY2RGB), map_x, map_y, cv2.INTER_LINEAR)
-
     return rectified_img
 
-## dataset and experiment directories
-data_dir = os.path.join(os.getcwd(), "data")
-seqs = [5] 
+# dataset and experiment directories
+data_dir = os.path.join(os.getcwd(), "data/")
+seqs = [1,2,3,4,5,6,7,8,9,10] 
 data_loader = dataLoader(data_path=data_dir, seqs=seqs) 
+imgs_rs, flows = data_loader.loadTesting()
+
 ckpt_name = os.path.join(os.getcwd(), "checkpoints/model.hdf5")
 model_loader = UnrollNet(data_loader.getImgShape())
 model_loader.model.load_weights(ckpt_name)
 
+save_dir = os.path.join(os.getcwd(), "test_results/")
+if os.path.exists(save_dir): shutil.rmtree(save_dir)
+os.makedirs(save_dir)
+
 ## training pipeline
 wins = 0
-for i in range(data_loader.num_train):
-    img_rs, flow_gs2rs = data_loader.load(i)
-    img_rs_batch = np.expand_dims(img_rs, 0) # (1, h, w, 1)
-    flow_gs2rs_pred = model_loader.model.predict(img_rs_batch)[0]
+ratio_img = []
+for i in tqdm(range(len(imgs_rs))):
+    img_input = np.expand_dims(imgs_rs[i], 0) # (1, h, w, 1)
+    flow_gt = flows[i]
+    flow_pred = model_loader.model.predict(img_input)[0]
+    img_input = img_input[0]
 
-    prv_diff = np.nanmean(np.square(flow_gs2rs))
-    new_diff = np.nanmean(np.square(flow_gs2rs - flow_gs2rs_pred))
-    res_str = 'Decreased' if prv_diff > new_diff else 'Increased'
-    print(f'{res_str} {prv_diff:.5f}=>{new_diff:.5f}')
-    wins += (1 if prv_diff > new_diff else 0)
+    img_gt = rectify_img_by_flow(img_input, flow_gt)
+    img_pred = rectify_img_by_flow(img_input, flow_pred)
+    
+    zero_diff = np.nanmean(np.square(flow_gt))
+    pred_diff = np.nanmean(np.square(flow_gt-flow_pred))
+    text_color = (0,255,0) if zero_diff > pred_diff else (0,0,255)
 
-    gens_gs = rectify_img_by_flow(img_rs, flow_gs2rs)
-    gens_gs_pred = rectify_img_by_flow(img_rs, flow_gs2rs_pred)
+    img_input = cv2.cvtColor(img_input, cv2.COLOR_GRAY2RGB)
+    img_input = cv2.putText(img_input, 'input: '+str(zero_diff), (10,40), cv2.FONT_HERSHEY_SIMPLEX, 1, text_color, 2) 
+    img_pred = cv2.putText(img_pred, 'pred: '+str(pred_diff), (10,40), cv2.FONT_HERSHEY_SIMPLEX, 1, text_color, 2) 
+    img_gt = cv2.putText(img_gt, 'gt', (10,40), cv2.FONT_HERSHEY_SIMPLEX, 1, text_color, 2) 
 
-    # cv2.namedWindow('img_rs', flags=cv2.WINDOW_NORMAL)
-    cv2.imshow('img_rs', img_rs)
-    # cv2.namedWindow('grount-truth', flags=cv2.WINDOW_NORMAL)
-    cv2.imshow('grount-truth', gens_gs)
-    # cv2.namedWindow('predicted', flags=cv2.WINDOW_NORMAL)
-    cv2.imshow('predicted', gens_gs_pred)
-    cv2.waitKey()
+    concat_img = cv2.hconcat([img_input,img_pred,img_gt])
+    ratio_img.append([pred_diff/zero_diff, concat_img])
 
-print (f"Wins: {wins/data_loader.num_train}")
+    wins += (1 if zero_diff > pred_diff else 0)
+
+print ('Wins: {}'.format(wins/len(imgs_rs)))
+print ('Writing results...')
+
+ratio_img_sorted = sorted(ratio_img)
+for i in range(len(imgs_rs)):
+    cv2.imwrite('{}{}.png'.format(save_dir,i), ratio_img_sorted[i][1])
+
 
 
 

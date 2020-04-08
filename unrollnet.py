@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 from keras.models import Input, Model
-from keras.layers import Conv2D, Conv2DTranspose, BatchNormalization, Activation
-from keras.layers import add, Lambda
+from keras.layers import Conv2D, Conv2DTranspose, BatchNormalization, Activation, Dropout
+from keras.layers import add, Lambda, Concatenate
 from keras import backend as K
 import tensorflow as tf
 import numpy as np
@@ -88,9 +88,9 @@ def EncoderNet(img_input):
     # en_layer4
     x = resEncoderBlock(x, filters=512, strides=2, stage=4)
     # en_layer5
-    x = resEncoderBlock(x, filters=1024, strides=2, stage=5)
+    x = resEncoderBlock(x, filters=512, strides=2, stage=5)
     # en_layer6
-    x = resEncoderBlock(x, filters=1024, strides=1, stage=6)
+    x = resEncoderBlock(x, filters=512, strides=1, stage=6)
 
     features = x 
     
@@ -99,9 +99,9 @@ def EncoderNet(img_input):
 
 def DecoderNet(fin):
     # de_layer6
-    x = resDecoderBlock(fin, filters=1024, strides=1, stage=6)
+    x = resDecoderBlock(fin, filters=512, strides=1, stage=6)
     # de_layer5
-    x = resDecoderBlock(fin, filters=1024, strides=2, stage=5)
+    x = resDecoderBlock(x, filters=512, strides=2, stage=5)
     # de_layer4
     x = resDecoderBlock(x, filters=256, strides=2, stage=4)
     # de_layer3
@@ -118,19 +118,15 @@ def DecoderNet(fin):
 
 class UnrollNet():
     def __init__(self, im_shape):
-        img_input = Input(shape=(im_shape[0], im_shape[1], 1))
-        features = EncoderNet(img_input)
-        flow_output = DecoderNet(features) 
-        self.model = Model(input=img_input, output=flow_output)
+        img_rs = Input(shape=(im_shape[0], im_shape[1], 1))
+        features = EncoderNet(img_rs)
+        flow_gs2rs = DecoderNet(features) 
+        self.model = Model(input=img_rs, output=flow_gs2rs)
 
     def flowLoss(self, y_true, y_pred):
-        # mask out pixels without valid flow(depth)
-        mask = tf.is_nan(y_true)
-        px_v_count = K.sum(1 - K.cast(mask, K.floatx()))
-
-        # calculate EPE loss
-        diff = tf.where(tf.is_nan(y_true), tf.zeros_like(y_true), y_true-y_pred)
-
-        # MSE loss
-        loss = K.sum(K.square(diff)) / px_v_count
-        return loss 
+        diff = y_true-y_pred
+        mask = tf.math.is_nan(diff)
+        count = tf.reduce_sum(1 - tf.cast(mask, diff.dtype))
+        diff = tf.where(mask, tf.zeros_like(diff), diff)
+        mean = tf.reduce_sum(tf.square(diff)) / count
+        return mean

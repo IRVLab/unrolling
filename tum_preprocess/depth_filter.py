@@ -3,7 +3,16 @@ import numpy as np
 from numpy import linalg as LA
 from scipy.stats import norm as norm_dist
 
-# @jit
+class Seed:
+    def __init__(self,uv):
+        self.uv = uv
+        self.z_range = np.nan
+        self.a = 10
+        self.b = 10
+        self.mu = np.nan
+        self.sigma2 = np.nan
+        self.vc = 0 # view count
+
 def interpolateDepth(depth,u,v):
     h,w = depth.shape[:2]
 
@@ -44,29 +53,28 @@ def getRay(cam,uv):
 
 def filterDepthByFlow(cam,seeds,flow_cur2fi,T_cur_fi):
     for i in range(len(seeds)):
-        [cu,cv] = seeds[i][0]
+        [cu,cv] = seeds[i].uv
         if not np.isnan(flow_cur2fi[cv,cu,0]):
             fu,fv = flow_cur2fi[cv,cu,:]
-            updatedSeed = updateSeed(cam,seeds[i],(cu+fu,cv+fv),T_cur_fi)
-            seeds[i] = updatedSeed
+            seeds[i] = updateSeed(cam,cam,seeds[i],(cu+fu,cv+fv),T_cur_fi)
     return seeds
 
-def updateSeed(cam,seed,uv_cur,T_ref_cur):
-    uv_ref = seed[0]
-    z = depthFromTriangulation(cam,T_ref_cur,uv_ref,uv_cur)
+def updateSeed(cam_ref,cam_cur,seed,uv_cur,T_ref_cur):
+    uv_ref = seed.uv
+    z = depthFromTriangulation(cam_ref,cam_cur,T_ref_cur,uv_ref,uv_cur)
     if z>=0:
-        tau = computeTau(cam,T_ref_cur,uv_ref,z)
+        tau = computeTau(cam_ref,T_ref_cur,uv_ref,z)
         tau_inverse = 0.5 * (1.0/max(0.0000001,z-tau) - 1.0/(z+tau))
         seed=updateSeedDist(seed,1.0/z,tau_inverse*tau_inverse)
     return seed
 
 ################################ helpers for updateSeed ###########################################
-def depthFromTriangulation(cam,T_ref_cur,uv_ref,uv_cur):
+def depthFromTriangulation(cam_ref,cam_cur,T_ref_cur,uv_ref,uv_cur):
     T_cur_ref = LA.inv(T_ref_cur)
     R_cur_ref = T_cur_ref[0:3,0:3]
     t_cur_ref = T_cur_ref[0:3,3]
-    ray_uv_ref = getRay(cam,uv_ref)
-    ray_uv_cur = getRay(cam,uv_cur)
+    ray_uv_ref = getRay(cam_ref,uv_ref)
+    ray_uv_cur = getRay(cam_cur,uv_cur)
 
     A = np.hstack((np.matmul(R_cur_ref,ray_uv_ref),ray_uv_cur))
     AtA = np.matmul(A.T,A)
@@ -77,9 +85,9 @@ def depthFromTriangulation(cam,T_ref_cur,uv_ref,uv_cur):
 
     return depth
 
-def computeTau(cam,T_ref_cur,uv_ref,z):
-    px_error_angle = cam[4]
-    ray_uv_ref = getRay(cam,uv_ref)
+def computeTau(cam_ref,T_ref_cur,uv_ref,z):
+    px_error_angle = cam_ref[4]
+    ray_uv_ref = getRay(cam_ref,uv_ref)
     t = np.expand_dims(T_ref_cur[0:3,3],-1)
     a = ray_uv_ref*z-t
     t_norm = LA.norm(t)
@@ -93,19 +101,21 @@ def computeTau(cam,T_ref_cur,uv_ref,z):
     return tau[0,0] # tau is 1x1 matrix
     
 def updateSeedDist(seed,x,tau2):
-    [uv,a,b,mu,z_range,sigma2,vc] = seed
-
-    if vc==0:
-        mu = x
-        sigma2 = tau2
-        seed = (uv,a,b,mu,z_range,sigma2,vc+1)
+    if seed.vc==0:
+        seed.mu = x
+        seed.sigma2 = tau2
+        seed.vc += 1
     else:
+        a = seed.a
+        b = seed.b
+        mu = seed.mu
+        sigma2 = seed.sigma2
         norm_scale = np.sqrt(sigma2 + tau2)
         if not np.isnan(norm_scale):
             s2 = 1.0/(1.0/sigma2 + 1.0/tau2)
             m = s2*(mu/sigma2 + x/tau2)
             C1 = a/(a+b) * norm_dist.pdf(x,mu,norm_scale)
-            C2 = b/(a+b) * 1.0/z_range
+            C2 = b/(a+b) * 1.0/seed.z_range
             normalization_constant = C1 + C2
             C1 /= normalization_constant
             C2 /= normalization_constant
@@ -114,11 +124,11 @@ def updateSeedDist(seed,x,tau2):
             + C2*a*(a+1.0)/((a+b+1.0)*(a+b+2.0))
 
             # update parameters
+            seed.a = (e - f) / (f - e / f)
+            seed.b = a * (1.0 - f) / f
             mu_new = C1*m+C2*mu
-            sigma2 = C1*(s2 + m*m) + C2*(sigma2 + mu*mu) - mu_new*mu_new
-            mu = mu_new
-            a = (e - f) / (f - e / f)
-            b = a * (1.0 - f) / f
-            seed = (uv,a,b,mu,z_range,sigma2,vc+1)
+            seed.mu = mu_new
+            seed.sigma2 = C1*(s2 + m*m) + C2*(sigma2 + mu*mu) - mu_new*mu_new
+            seed.vc += 1
     
     return seed

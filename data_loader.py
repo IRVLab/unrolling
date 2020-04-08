@@ -6,60 +6,78 @@ import csv
 
 class dataLoader():
     def __init__(self, data_path, seqs):
-        self.rs_folder = "cam1/images/"
-        self.fl_folder = "cam1/flows_gs2rs/"
-        self.getTrainPaths(data_path, seqs)
+        self.img_folder = "cam1/images/"
+        self.flow_folder = "cam1/flows_gs2rs/"
+        
+        # get training/testing indices
+        self.train_idx = np.load(data_path+'train_idx.npy')
+        self.test_idx = np.load(data_path+'test_idx.npy')
 
-    def getTrainPaths(self, data_path, seqs):
         # get all paths
-        self.all_rs_paths, self.all_fl_paths = [], []
+        self.all_img_paths,self.all_flow_paths = [],[]
         for seq in seqs:
             train_dir = os.path.join(data_path, 'seq'+str(seq))
-            rs_paths, fl_paths = self.getPairedPaths(train_dir)
-            self.all_rs_paths += rs_paths
-            self.all_fl_paths += fl_paths
-
-        self.num_train = len(self.all_fl_paths)
+            img_paths,flow_paths = self.getPairedPaths(train_dir)
+            self.all_img_paths += img_paths
+            self.all_flow_paths += flow_paths
+        
+        assert(len(self.all_img_paths)==len(self.all_flow_paths))
+        assert((len(self.train_idx)+len(self.test_idx))==len(self.all_img_paths))
 
     def getPairedPaths(self, data_dir):
-        rs_files = os.listdir(os.path.join(data_dir, self.rs_folder))
-        rs_paths, fl_paths = [], []
-        for fi in range(len(rs_files)):
-            rs_paths.append(os.path.join(data_dir, self.rs_folder, str(fi)+'.png'))
-            fl_paths.append(os.path.join(data_dir, self.fl_folder, str(fi)+'.npy'))
+        img_files = os.listdir(os.path.join(data_dir, self.img_folder))
+        img_paths,flow_paths = [],[]
+        for fi in range(len(img_files)):
+            img_paths.append(os.path.join(data_dir, self.img_folder, str(fi)+'.png'))
+            flow_paths.append(os.path.join(data_dir, self.flow_folder, str(fi)+'.npy'))
 
-        return (rs_paths, fl_paths)
+        return (img_paths,flow_paths)
 
     def getImgShape(self):
-        img_rs = cv2.imread(self.all_rs_paths[0], 0).astype(np.float)
+        img_rs = cv2.imread(self.all_img_paths[0], 0)
         return img_rs.shape[:2]
 
     def load(self, i):
-        img_rs = cv2.imread(self.all_rs_paths[i], 0).astype(np.float)
-        img_rs = np.array(img_rs, dtype=np.uint8)
-        img_rs = np.expand_dims(img_rs, -1) # (h, w, 1)
+        img_rs = cv2.imread(self.all_img_paths[i], 0)
+        flow = np.load(self.all_flow_paths[i])
 
-        flow = np.load(self.all_fl_paths[i])
-        
         return img_rs, flow
 
     def loadAll(self):
-        imgs_rs, flows = [], []
-        for i in range(len(self.all_rs_paths)): 
-            img_rs = cv2.imread(self.all_rs_paths[i], 0).astype(np.float)
+        imgs_rs,flows = [], []
+        for i in range(len(self.all_img_paths)): 
+            img_rs,flow = self.load(i)
             imgs_rs.append(img_rs)
-            flow = np.load(self.all_fl_paths[i])
             flows.append(flow)
 
-        imgs_rs = np.array(imgs_rs, dtype=np.uint8)
-        imgs_rs = np.expand_dims(imgs_rs, -1) # (b, h, w, 1)
-
-        flows = np.array(flows, dtype=np.float32)
+        imgs_rs = np.expand_dims(np.array(imgs_rs), -1)
+        flows = np.array(flows)
 
         return imgs_rs, flows
 
+    def loadTraining(self):
+        imgs_rs,flows = [], []
+        for i in self.train_idx: 
+            img_rs,flow = self.load(i)
+            imgs_rs.append(img_rs)
+            flows.append(flow)
 
+        imgs_rs = np.expand_dims(np.array(imgs_rs), -1)
+        flows = np.array(flows)
 
+        return imgs_rs, flows
+
+    def loadTesting(self):
+        imgs_rs,flows = [], []
+        for i in self.test_idx: 
+            img_rs,flow = self.load(i)
+            imgs_rs.append(img_rs)
+            flows.append(flow)
+
+        imgs_rs = np.expand_dims(np.array(imgs_rs), -1)
+        flows = np.array(flows)
+
+        return imgs_rs, flows
 
 
 

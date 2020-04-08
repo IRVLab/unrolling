@@ -2,4 +2,6 @@ pwc_models/
 checkpoints/
 __pycache__/
 data/
+test_results/
 *.pyc
+*.npy
