@@ -12,7 +12,6 @@ from tqdm import tqdm
 
 def rectify_img_by_flow(img, flow):
     h, w = img.shape[:2]
-    rectified_img = np.zeros_like(img)
     indy, indx = np.indices((h, w), dtype=np.float32)
     map_x = indx.reshape(h, w).astype(np.float32) + flow[:,:,0]
     map_y = indy.reshape(h, w).astype(np.float32) + flow[:,:,1]
