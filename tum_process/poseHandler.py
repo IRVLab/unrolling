@@ -36,19 +36,21 @@ class Pose:
         return T
 
     def getVelBetween(self, ns_a, ns_b):
+        dur_s = (ns_b-ns_a) / 1e9
         T_w_0 = self.getPoseAt(ns_a)
         T_w_1 = self.getPoseAt(ns_b)
         T_0_1 = np.matmul(LA.inv(T_w_0),T_w_1)
-        vt = T_0_1[0:3,3] / (ns_b-ns_a) * 1e9
-        vr = Rotation.from_matrix(T_0_1[0:3,0:3]).as_rotvec() / (ns_b-ns_a) * 1e9
+        vt = T_0_1[0:3,3] / dur_s
+        vr = Rotation.from_matrix(T_0_1[0:3,0:3]).as_rotvec() / dur_s
         vtvr = [vt[0],vt[1],vt[2],vr[0],vr[1],vr[2]]
         return vtvr
 
-    def getAccBetween(self, ns_a, ns_b, tm):
-        va = self.getVelBetween(ns_a, ns_a+tm)
-        vb = self.getVelBetween(ns_b-tm, ns_b)
-        vd = [va[0]-vb[0],va[1]-vb[1],va[2]-vb[2],va[3]-vb[3],va[4]-vb[4],va[5]-vb[5]]
-        return vd / (ns_b-ns_a) * 1e9
+    def getAccBetween(self, ns_a, ns_b):
+        dur_s = (ns_b-ns_a) / 1e9
+        v0 = self.getVelBetween(ns_a, (ns_a+ns_b)/2)
+        v1 = self.getVelBetween((ns_a+ns_b)/2, ns_b)
+        atar = [v1[0]-v0[0],v1[1]-v0[1],v1[2]-v0[2],v1[3]-v0[3],v1[4]-v0[4],v1[5]-v0[5]] / dur_s
+        return atar
 
 def getPoses(data_dir,save_dir,img_h,ns_per_v):
     # image name/time_ns
@@ -77,7 +79,7 @@ def getPoses(data_dir,save_dir,img_h,ns_per_v):
 
         # get velocity and acceleration data for comparision
         vel_t_r[i,:] = gt_pose_cam1.getVelBetween(img_ns[i],img_ns[i]+ns_per_v*(img_h-1))
-        acc_t_r[i,:] = gt_pose_cam1.getAccBetween(img_ns[i],img_ns[i]+ns_per_v*(img_h-1),ns_per_v)
+        acc_t_r[i,:] = gt_pose_cam1.getAccBetween(img_ns[i],img_ns[i]+ns_per_v*(img_h-1))
 
     pose1_path = os.path.join(save_dir,"poses_cam0_v1.npy")
     np.save(pose1_path,T_cam0_v1)

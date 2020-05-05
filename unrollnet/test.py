@@ -2,13 +2,14 @@ from __future__ import print_function, division
 import os
 import cv2
 import numpy as np
-from data_loader import dataLoader
-from unrollnet import UnrollNet
 from keras.layers import Lambda
 from keras.optimizers import Adam
 import tensorflow as tf
 import shutil
 from tqdm import tqdm
+
+from data_loader import dataLoader
+from .unrollnet import UnrollNet
 
 def rectify_img_by_flow(img, flow):
     h, w = img.shape[:2]
@@ -19,9 +20,7 @@ def rectify_img_by_flow(img, flow):
     return rectified_img
 
 # dataset and experiment directories
-data_dir = os.path.join(os.getcwd(), "data/")
-seqs = [1,2,3,4,5,6,7,8,9,10] 
-data_loader = dataLoader(data_path=data_dir, seqs=seqs) 
+data_loader = dataLoader() 
 imgs_rs, flows = data_loader.loadTesting()
 
 ckpt_name = os.path.join(os.getcwd(), "checkpoints/model.hdf5")

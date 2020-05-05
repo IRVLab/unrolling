@@ -3,18 +3,17 @@ import os
 import numpy as np
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
+
 from data_loader import dataLoader
-from unrollnet import UnrollNet
+from .unrollnet import UnrollNet
 
 # parameters
 batch_size = 10
 no_epochs = 200
-learning_rate = 1e-7
+learning_rate = 1e-4
 
 # load data
-data_dir = os.path.join(os.getcwd(), "data/")
-seqs = [1,2,3,4,5,6,7,8,9,10] 
-data_loader = dataLoader(data_path=data_dir, seqs=seqs) 
+data_loader = dataLoader() 
 imgs_rs, flows = data_loader.loadTraining()
 
 # checkpoint

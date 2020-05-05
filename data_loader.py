@@ -5,19 +5,19 @@ import cv2
 import csv
 
 class dataLoader():
-    def __init__(self, data_path, seqs):
+    def __init__(self):
+        data_path = os.path.join(os.getcwd(), "data/")
         self.img_folder = "cam1/images/"
         self.flow_folder = "cam1/flows_gs2rs/"
-        
-        # get training/testing indices
         self.train_idx = np.load(data_path+'train_idx.npy')
         self.test_idx = np.load(data_path+'test_idx.npy')
 
         # get all paths
+        seqs = [1,2,3,4,5,6,7,8,9,10] 
         self.all_img_paths,self.all_flow_paths = [],[]
         for seq in seqs:
-            train_dir = os.path.join(data_path, 'seq'+str(seq))
-            img_paths,flow_paths = self.getPairedPaths(train_dir)
+            data_dir = os.path.join(data_path, 'seq'+str(seq))
+            img_paths,flow_paths = self.getPairedPaths(data_dir)
             self.all_img_paths += img_paths
             self.all_flow_paths += flow_paths
         
