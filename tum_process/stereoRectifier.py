@@ -2,22 +2,15 @@ from __future__ import absolute_import,division,print_function
 import numpy as np
 import cv2
 import os
-import shutil
 import yaml
 from numpy import linalg as LA
 from tqdm import tqdm
 
-def saveCamera(fileName,P):
-    fxfycxcytx = np.array([P[0,0],P[1,1],P[0,2],P[1,2],P[0,3]/P[0,0]])
-    np.save(fileName,fxfycxcytx)
-
 def stereoRectify(data_dir,save_dir,resolution):
     img0_dir = save_dir+"cam0/images/"
     img1_dir = save_dir+"cam1/images/"
-    if os.path.exists(img0_dir): shutil.rmtree(img0_dir)
-    if os.path.exists(img1_dir): shutil.rmtree(img1_dir)
-    os.makedirs(img0_dir)
-    os.makedirs(img1_dir)
+    if not os.path.exists(img0_dir): os.makedirs(img0_dir)
+    if not os.path.exists(img1_dir): os.makedirs(img1_dir)
 
     # Read original calibration file
     with open(data_dir+"camchain.yaml") as file:
@@ -42,9 +35,15 @@ def stereoRectify(data_dir,save_dir,resolution):
 
     # Fisheye stere0 rectify
     R0,R1,P0,P1,Q = cv2.fisheye.stereoRectify(K0,D0,K1,D1,imageSize,R,tvec,0,newImageSize=resolution)
-    map00,map01 = cv2.fisheye.initUndistortRectifyMap(K0,D0,R0,P0,resolution,cv2.CV_32F)
-    map10,map11 = cv2.fisheye.initUndistortRectifyMap(K1,D1,R1,P1,resolution,cv2.CV_32F)
-    map0,map1 = [map00,map10],[map01,map11]
+    map0 = cv2.fisheye.initUndistortRectifyMap(K0,D0,R0,P0,resolution,cv2.CV_32F)
+    map1 = cv2.fisheye.initUndistortRectifyMap(K1,D1,R1,P1,resolution,cv2.CV_32F)
+    np.save(save_dir+"cam0/stereo_map.npy",np.array(map0))
+    np.save(save_dir+"cam1/stereo_map.npy",np.array(map1))
+
+    fxfycxcytx0 = np.array([P0[0,0],P0[1,1],P0[0,2],P0[1,2],P0[0,3]/P0[0,0]])
+    fxfycxcytx1 = np.array([P1[0,0],P1[1,1],P1[0,2],P1[1,2],P1[0,3]/P1[0,0]])
+    np.save(save_dir+"cam0/camera.npy",fxfycxcytx0)
+    np.save(save_dir+"cam1/camera.npy",fxfycxcytx1)
 
     T_cam0_imu = np.matrix(camchain['cam0']['T_cam_imu'])
     T2rectified = np.identity(4)
@@ -52,15 +51,15 @@ def stereoRectify(data_dir,save_dir,resolution):
     T_imu_cam0 = LA.inv(T2rectified*T_cam0_imu)
     np.save(save_dir+"cam0/T_imu_cam0.npy",T_imu_cam0)
 
-    saveCamera(save_dir+"cam0/camera.npy",P0)
-    saveCamera(save_dir+"cam1/camera.npy",P1)
-
+def stereoRemap(data_dir,save_dir):
+    valid_ns = np.load(save_dir+"valid_ns.npy")
+    map0 = np.load(save_dir+"cam0/stereo_map.npy")
+    map1 = np.load(save_dir+"cam1/stereo_map.npy")
+    maps = [map0,map1]
     # Remap images 
-    img_names = sorted(os.listdir(data_dir+"cam0/images/"))
-    for img_i in tqdm(range(len(img_names))):
-        for i in range(2):
-            img_name = img_names[img_i]
-            img = cv2.imread('{}cam{}/images/{}'.format(data_dir,i,img_name))
-            img_rect = cv2.remap(img,map0[i],map1[i],cv2.INTER_LINEAR)
-            save_path = '{}cam{}/images/{}.png'.format(save_dir,i,img_i)
+    for ns_i in tqdm(range(valid_ns.shape[0])):
+        for cam_i in [0,1]:
+            img = cv2.imread('{}cam{}/images/{}.png'.format(data_dir,cam_i,valid_ns[ns_i]))
+            img_rect = cv2.remap(img,maps[cam_i][0],maps[cam_i][1],cv2.INTER_LINEAR)
+            save_path = '{}cam{}/images/{}.png'.format(save_dir,cam_i,ns_i)
             cv2.imwrite(save_path,img_rect)

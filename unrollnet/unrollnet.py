@@ -1,10 +1,7 @@
 from __future__ import absolute_import, division, print_function
 from keras.models import Input, Model
-from keras.layers import Conv2D, Conv2DTranspose, BatchNormalization, Activation, Dropout
-from keras.layers import add, Lambda, Concatenate
-from keras import backend as K
+from keras.layers import Conv2D, Conv2DTranspose, BatchNormalization, Activation, add
 import tensorflow as tf
-import numpy as np
 
 def plainEncoderBlock(input_tensor, filters, strides, stage):
     x = Conv2D(filters, kernel_size=3, strides=strides, padding='same', name='plainEncoderBlock_'+str(stage)+'ac')(input_tensor)

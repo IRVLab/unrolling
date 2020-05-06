@@ -2,7 +2,6 @@ from __future__ import absolute_import,division,print_function
 import numpy as np
 import os
 import cv2
-import shutil
 from tqdm import tqdm
 from numpy import linalg as LA
 
@@ -21,31 +20,25 @@ def inspectResults(save_dir):
     img1_dir = save_dir+"cam1/images/"
     depth1_dir = save_dir+"cam1/depth/"
     flows_gs2rs_dir = save_dir+"cam1/flows_gs2rs/"
-    flows_gs2rs_cv_dir = save_dir+"cam1/flows_gs2rs_cv/"
-    const_vel_cam1 = np.load(save_dir+"cam1/vel_t_r.npy")
-    img_count = len(os.listdir(img1_dir))
+    img_count = len(os.listdir(depth1_dir))
 
     for i in tqdm(range(img_count)):
-        print(const_vel_cam1[i])
         img1 = cv2.imread('{}{}.png'.format(img1_dir,i),0)
-        img1 = cv2.cvtColor(img1, cv2.COLOR_GRAY2RGB)
-        depth1 = np.load('{}{}.npy'.format(depth1_dir,i))
         flow_gs2rs = np.load('{}{}.npy'.format(flows_gs2rs_dir,i))
-        flow_gs2rs_cv = np.load('{}{}.npy'.format(flows_gs2rs_cv_dir,i))
-        h, w = img1.shape[:2]
+        img1 = cv2.cvtColor(img1, cv2.COLOR_GRAY2RGB)
+        rectified_img1 = recitifyImg(img1,flow_gs2rs)
     
+        depth1 = np.load('{}{}.npy'.format(depth1_dir,i))
         dep1_jet = depth1/7*255
         dep1_jet = cv2.applyColorMap(dep1_jet.astype(np.uint8), cv2.COLORMAP_JET)
 
-        rectified_img1 = recitifyImg(img1,flow_gs2rs)
-        rectified_img1_cv = recitifyImg(img1,flow_gs2rs_cv)
-
-        img_dep_rect = cv2.hconcat([img1,dep1_jet,rectified_img1,rectified_img1_cv])
+        img_dep_rect = cv2.hconcat([img1,dep1_jet,rectified_img1])
         cv2.imshow('Result',img_dep_rect)
         cv2.waitKey()
 
 if __name__=="__main__":
     seqs = ['1','2','3','4','5','6','7','8','9','10']
     for seq in seqs:
+        print ('\n\n\nSequence '+str(seq))
         save_dir = os.path.join(os.getcwd(),'../data/seq{}/'.format(seq))
         inspectResults(save_dir)

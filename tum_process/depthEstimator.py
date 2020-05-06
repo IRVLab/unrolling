@@ -2,12 +2,33 @@ from __future__ import absolute_import,division,print_function
 import numpy as np
 import os
 import cv2
-import shutil
 from tqdm import tqdm
 from numpy import linalg as LA
-from scipy.spatial.transform import Rotation
 
-from flowExtractor import getFlowBD,getFlowEp
+from pwcnet import ModelPWCNet,_DEFAULT_PWCNET_TEST_OPTIONS
+
+pwc_net = ModelPWCNet()
+def getFlowBD(img0,img1,windowName=''):
+    FLOW_THRES = 2               # threshold to accept a flow by bi-directional matching
+    h,w = img0.shape[:2]
+
+    img_pairs = [(img0,img1),(img1,img0)]
+    flow01,flow10 = pwc_net.predict_from_img_pairs(img_pairs,batch_size=2)
+
+    flow01_filtered = np.empty_like(flow01)
+    flow01_filtered[:] = np.nan
+    for v0 in range(h):
+        for u0 in range(w):
+            fu01,fv01 = flow01[v0,u0,:]
+            u1,v1 = u0+fu01,v0+fv01
+            u1i,v1i = int(u1+0.5),int(v1+0.5)
+            if 0<=v1i<h and 0<=u1i<w:
+                fu10,fv10 = flow10[v1i,u1i,:]
+                du,dv = u1+fu10-u0,v1+fv10-v0
+                if (du*du+dv*dv)<FLOW_THRES:  # bi-directional filtering
+                    flow01_filtered[v0,u0,0] = flow01[v0,u0,0]
+                    flow01_filtered[v0,u0,1] = flow01[v0,u0,1]
+    return flow01_filtered
 
 def getRay(cam,uv):
     ray_uv = np.ones(3,dtype=np.float32)
@@ -42,28 +63,23 @@ def calculateCurDepth(cam0,img0,cam1,img1,T_cam0_v1):
             fu,fv = flow10[v1,u1,:]
             if not np.isnan(fu):
                 uv0 = [u1+fu,v1+fv]
-                v0 = int(v1+fv+0.5)
-                if(0<=v0<h):
-                    depth1[v1,u1] = depthFromTriangulation(cam1,cam0,T_cam0_v1[v1],[u1,v1],uv0)
+                depth1[v1,u1] = depthFromTriangulation(cam1,cam0,T_cam0_v1[v1],[u1,v1],uv0)
 
     return depth1  
 
 def getDepth(save_dir):
-    depth1_dir = save_dir+"cam1/depth/"
-    if os.path.exists(depth1_dir): shutil.rmtree(depth1_dir)
-    os.makedirs(depth1_dir)
-
-    # Load images
     img0_dir = save_dir+"cam0/images/"
     img1_dir = save_dir+"cam1/images/"
-    img_count = len(os.listdir(img0_dir))
-
-    # Load poses
-    T_cam0_v1 = np.load(save_dir+"poses_cam0_v1.npy")
+    depth1_dir = save_dir+"cam1/depth/"
+    if not os.path.exists(depth1_dir): os.makedirs(depth1_dir)
 
     # Load cameras
     cam0 = np.load(save_dir+"cam0/camera.npy")
     cam1 = np.load(save_dir+"cam1/camera.npy")
+
+    # Load poses
+    T_cam0_v1 = np.load(save_dir+"poses_cam0_v1.npy")
+    img_count = T_cam0_v1.shape[0]
 
     # Get depth 
     for i in tqdm(range(img_count)):

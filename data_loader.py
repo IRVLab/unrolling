@@ -3,82 +3,109 @@ import os
 import numpy as np
 import cv2
 import csv
+from numpy import linalg as LA
 
 class dataLoader():
     def __init__(self):
         data_path = os.path.join(os.getcwd(), "data/")
         self.img_folder = "cam1/images/"
         self.flow_folder = "cam1/flows_gs2rs/"
+        self.depth_folder = "cam1/depth/"
+        self.vel_file = "cam1/vel_t_r.npy"
+        self.acc_file = "cam1/acc_t_r.npy"
         self.train_idx = np.load(data_path+'train_idx.npy')
         self.test_idx = np.load(data_path+'test_idx.npy')
 
         # get all paths
         seqs = [1,2,3,4,5,6,7,8,9,10] 
-        self.all_img_paths,self.all_flow_paths = [],[]
+        self.all_img_paths,self.all_flow_paths,self.all_depth_paths = [],[],[]
+        self.all_vels = np.empty((0,6))
+        self.all_accs = np.empty((0,6))
         for seq in seqs:
             data_dir = os.path.join(data_path, 'seq'+str(seq))
-            img_paths,flow_paths = self.getPairedPaths(data_dir)
+            img_paths,flow_paths,depth_paths = self.getPaths(data_dir)
             self.all_img_paths += img_paths
             self.all_flow_paths += flow_paths
+            self.all_depth_paths += depth_paths
+            cur_vels = np.load(os.path.join(data_dir, self.vel_file))
+            self.all_vels = np.concatenate((self.all_vels, cur_vels))
+            cur_accs = np.load(os.path.join(data_dir, self.vel_file))
+            self.all_accs = np.concatenate((self.all_accs, cur_accs))
         
-        assert(len(self.all_img_paths)==len(self.all_flow_paths))
-        assert((len(self.train_idx)+len(self.test_idx))==len(self.all_img_paths))
+        # order test indices by rolling shutter intensity
+        diff_idx = []
+        for i in self.test_idx: 
+            flow = np.load(self.all_flow_paths[i])
+            zero_diff = np.nanmean(np.sqrt(np.sum(np.square(flow), axis=-1)))
+            diff_idx.append([zero_diff,i])
+        diff_idx = np.array(diff_idx)
+        diff_idx = np.array(sorted(diff_idx.tolist(),reverse=True))
+        self.test_idx = diff_idx[:,1].astype(int)
 
-    def getPairedPaths(self, data_dir):
-        img_files = os.listdir(os.path.join(data_dir, self.img_folder))
-        img_paths,flow_paths = [],[]
-        for fi in range(len(img_files)):
+        assert((len(self.train_idx)+len(self.test_idx))==len(self.all_depth_paths))
+
+    def getPaths(self, data_dir):
+        img_count = os.listdir(os.path.join(data_dir, self.flow_folder))
+        img_paths,flow_paths,depth_paths = [],[],[]
+        for fi in range(len(img_count)):
             img_paths.append(os.path.join(data_dir, self.img_folder, str(fi)+'.png'))
             flow_paths.append(os.path.join(data_dir, self.flow_folder, str(fi)+'.npy'))
+            depth_paths.append(os.path.join(data_dir, self.depth_folder, str(fi)+'.npy'))
 
-        return (img_paths,flow_paths)
+        return (img_paths,flow_paths,depth_paths)
 
     def getImgShape(self):
-        img_rs = cv2.imread(self.all_img_paths[0], 0)
-        return img_rs.shape[:2]
+        img = cv2.imread(self.all_img_paths[0], 0)
+        return img.shape[:2]
 
-    def load(self, i):
-        img_rs = cv2.imread(self.all_img_paths[i], 0)
-        flow = np.load(self.all_flow_paths[i])
+    def loadByIndices(self, gt_type, indices):
+        imgs,gts = [], []
+        for i in indices: 
+            img = cv2.imread(self.all_img_paths[i], 0)
+            imgs.append(img)
+            if gt_type == 0:
+                flow = np.load(self.all_flow_paths[i])
+                gts.append(flow)
+            elif gt_type == 1:
+                depth = np.load(self.all_depth_paths[i])
+                depth = np.expand_dims(depth, -1)
+                gts.append(depth)
+            else:
+                vel = self.all_vels[i]
+                vel = np.expand_dims(vel, 0)
+                vel = np.expand_dims(vel, 0)
+                gts.append(vel)
 
-        return img_rs, flow
+        imgs = np.expand_dims(np.array(imgs), -1)
+        gts = np.array(gts)
 
-    def loadAll(self):
-        imgs_rs,flows = [], []
-        for i in range(len(self.all_img_paths)): 
-            img_rs,flow = self.load(i)
-            imgs_rs.append(img_rs)
-            flows.append(flow)
+        return imgs, gts
 
-        imgs_rs = np.expand_dims(np.array(imgs_rs), -1)
-        flows = np.array(flows)
+    def loadTrainingUnroll(self):
+        return self.loadByIndices(0, self.train_idx)
 
-        return imgs_rs, flows
+    def loadTestingUnroll(self):
+        return self.loadByIndices(0, self.test_idx)
 
-    def loadTraining(self):
-        imgs_rs,flows = [], []
-        for i in self.train_idx: 
-            img_rs,flow = self.load(i)
-            imgs_rs.append(img_rs)
-            flows.append(flow)
+    def loadTrainingDepth(self):
+        return self.loadByIndices(1, self.train_idx)
 
-        imgs_rs = np.expand_dims(np.array(imgs_rs), -1)
-        flows = np.array(flows)
+    def loadTrainingVelocity(self):
+        return self.loadByIndices(2, self.train_idx)
 
-        return imgs_rs, flows
+    def loadTestingDepthVelocity(self):
+        _, depth = self.loadByIndices(1, self.test_idx)
+        _, velocity = self.loadByIndices(2, self.test_idx)
+        return [depth, velocity]
 
-    def loadTesting(self):
-        imgs_rs,flows = [], []
+    def loadTestingAcceleration(self):
+        accs = []
         for i in self.test_idx: 
-            img_rs,flow = self.load(i)
-            imgs_rs.append(img_rs)
-            flows.append(flow)
-
-        imgs_rs = np.expand_dims(np.array(imgs_rs), -1)
-        flows = np.array(flows)
-
-        return imgs_rs, flows
-
+            acc = self.all_accs[i]
+            at = LA.norm(acc[:3])
+            ar = LA.norm(acc[3:])
+            accs.append([at,ar])
+        return np.array(accs)
 
 
 

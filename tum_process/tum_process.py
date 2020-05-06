@@ -1,9 +1,8 @@
 from __future__ import absolute_import,division,print_function
 import os
-import shutil
 import numpy as np
 
-from stereoRectifier import stereoRectify
+from stereoRectifier import stereoRectify, stereoRemap
 from poseHandler import getPoses
 from depthEstimator import getDepth
 from gtFlowGenerator import getGS2RSFlows
@@ -17,14 +16,15 @@ if __name__=="__main__":
         data_dir = '/home/moxxx066/Workspace/data/dataset-seq{}/dso/'.format(seq)
         save_dir = os.path.join(os.getcwd(),'../data/seq{}/'.format(seq))
 
-        if os.path.exists(save_dir): shutil.rmtree(save_dir)
-        os.makedirs(save_dir)
+        if not os.path.exists(save_dir): os.makedirs(save_dir)
 
-        print ('Stereo Rectifying...')
         stereoRectify(data_dir, save_dir, resolution)
 
         print ('Getting Pose...')
         getPoses(data_dir, save_dir, resolution[1], ns_per_v)
+
+        print ('Stereo Rectifying...')
+        stereoRemap(data_dir, save_dir)
 
         print ('Getting Depth...')
         getDepth(save_dir)
@@ -36,10 +36,9 @@ if __name__=="__main__":
     total_img_count = 0
     for seq in seqs:
         save_dir = os.path.join(os.getcwd(),'../data/seq{}/'.format(seq))
-        img0_dir = save_dir+"cam0/images/"
-        img_count = len(os.listdir(img0_dir))
+        depth_dir = save_dir+"cam1/depth/"
+        img_count = len(os.listdir(depth_dir))
         total_img_count += img_count
-
     indices = np.random.permutation(total_img_count)
     last_train_idx = int(0.8*total_img_count)
     train_idx = indices[:last_train_idx]
