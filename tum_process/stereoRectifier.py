@@ -40,6 +40,13 @@ def stereoRectify(data_dir,save_dir,resolution):
     np.save(save_dir+"cam0/stereo_map.npy",np.array(map0))
     np.save(save_dir+"cam1/stereo_map.npy",np.array(map1))
 
+    # Loopup table for rolling shutter time query
+    cols_idx, _ = np.indices((imageSize[1], imageSize[0]), dtype=np.float32)
+    cols_idx = cols_idx / imageSize[1] * resolution[1]
+    v1_lut = cv2.remap(cols_idx,map1[0],map1[1],cv2.INTER_NEAREST)
+    v1_lut = np.array(v1_lut, dtype=int)
+    np.save(save_dir+"cam1/v1_lut.npy",v1_lut)
+
     fxfycxcytx0 = np.array([P0[0,0],P0[1,1],P0[0,2],P0[1,2],P0[0,3]/P0[0,0]])
     fxfycxcytx1 = np.array([P1[0,0],P1[1,1],P1[0,2],P1[1,2],P1[0,3]/P1[0,0]])
     np.save(save_dir+"cam0/camera.npy",fxfycxcytx0)
@@ -57,9 +64,9 @@ def stereoRemap(data_dir,save_dir):
     map1 = np.load(save_dir+"cam1/stereo_map.npy")
     maps = [map0,map1]
     # Remap images 
-    for ns_i in tqdm(range(valid_ns.shape[0])):
+    for i in tqdm(range(valid_ns.shape[0])):
         for cam_i in [0,1]:
-            img = cv2.imread('{}cam{}/images/{}.png'.format(data_dir,cam_i,valid_ns[ns_i]))
+            img = cv2.imread('{}cam{}/images/{}.png'.format(data_dir,cam_i,valid_ns[i]))
             img_rect = cv2.remap(img,maps[cam_i][0],maps[cam_i][1],cv2.INTER_LINEAR)
-            save_path = '{}cam{}/images/{}.png'.format(save_dir,cam_i,ns_i)
+            save_path = '{}cam{}/images/{}.png'.format(save_dir,cam_i,i)
             cv2.imwrite(save_path,img_rect)

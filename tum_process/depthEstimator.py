@@ -51,7 +51,7 @@ def depthFromTriangulation(cam_ref,cam_cur,T_cur_ref,uv_ref,uv_cur):
 
     return depth*ray_uv_ref[-1]
 
-def calculateCurDepth(cam0,img0,cam1,img1,T_cam0_v1):
+def calculateCurDepth(cam0,img0,cam1,img1,T_cam0_v1,v1_lut):
     h,w = img0.shape[:2]
 
     depth1 = np.empty([h,w])
@@ -63,7 +63,7 @@ def calculateCurDepth(cam0,img0,cam1,img1,T_cam0_v1):
             fu,fv = flow10[v1,u1,:]
             if not np.isnan(fu):
                 uv0 = [u1+fu,v1+fv]
-                depth1[v1,u1] = depthFromTriangulation(cam1,cam0,T_cam0_v1[v1],[u1,v1],uv0)
+                depth1[v1,u1] = depthFromTriangulation(cam1,cam0,T_cam0_v1[v1_lut[v1,u1]],[u1,v1],uv0)
 
     return depth1  
 
@@ -79,13 +79,14 @@ def getDepth(save_dir):
 
     # Load poses
     T_cam0_v1 = np.load(save_dir+"poses_cam0_v1.npy")
+    v1_lut = np.load(save_dir+"cam1/v1_lut.npy")
     img_count = T_cam0_v1.shape[0]
 
     # Get depth 
     for i in tqdm(range(img_count)):
         img0 = cv2.imread('{}{}.png'.format(img0_dir,i))
         img1 = cv2.imread('{}{}.png'.format(img1_dir,i))
-        depth1 = calculateCurDepth(cam0,img0,cam1,img1,T_cam0_v1[i])
+        depth1 = calculateCurDepth(cam0,img0,cam1,img1,T_cam0_v1[i],v1_lut)
         fname = os.path.join(depth1_dir,str(i))
         np.save(fname,depth1)
         

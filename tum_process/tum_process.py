@@ -31,18 +31,3 @@ if __name__=="__main__":
 
         print ('Getting Unrolling Flow...')
         getGS2RSFlows(save_dir,ns_per_v)
-
-    # randomly pick 80%/20% data for training/testing
-    total_img_count = 0
-    for seq in seqs:
-        save_dir = os.path.join(os.getcwd(),'../data/seq{}/'.format(seq))
-        depth_dir = save_dir+"cam1/depth/"
-        img_count = len(os.listdir(depth_dir))
-        total_img_count += img_count
-    indices = np.random.permutation(total_img_count)
-    last_train_idx = int(0.8*total_img_count)
-    train_idx = indices[:last_train_idx]
-    test_idx = indices[last_train_idx:]
-    idx_folder = os.path.join(os.getcwd(),'../data/')
-    np.save(idx_folder+'train_idx.npy', train_idx)
-    np.save(idx_folder+'test_idx.npy', test_idx)

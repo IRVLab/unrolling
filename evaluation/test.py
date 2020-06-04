@@ -6,8 +6,8 @@ from tqdm import tqdm
 from scipy.spatial.transform import Rotation
 
 from unrollnet.unrollnet import UnrollNet
-from evaluation.depthnet.depthnet import DepthNet
-from evaluation.velocitynet.velocitynet import VelocityNet
+from evaluation.depthvelnet.depthnet import DepthNet
+from evaluation.depthvelnet.velocitynet import VelocityNet
 from data_loader import dataLoader
 
 def projectPoint(ua,va,da,cam_a,T_b_a,cam_b):
@@ -91,35 +91,35 @@ for i in tqdm(range(len(imgs))):
     depth_pred = depthnet.model.predict(img_input)[0]
     vel_pred = velocitynet.model.predict(img_input)[0,0,0]
     flow_pred_dv = getGS2RSFlowCV(depth_pred,cam1,vel_pred,ns_per_v)
-    flow_pred_cg = getGS2RSFlowCV(depths[i],cam1,vels[i][0][0],ns_per_v)
+    # flow_pred_cg = getGS2RSFlowCV(depths[i],cam1,vels[i][0][0],ns_per_v)
     
     img_input = cv2.cvtColor(img_input[0], cv2.COLOR_GRAY2RGB)
-    img_gt = rectifyImgByFlow(img_input, flow_gt)
+    # img_gt = rectifyImgByFlow(img_input, flow_gt)
 
     [img_pred_text_ur, pred_dist_ur] = process(img_input, flow_gt, zero_dist, flow_pred_ur, 'UnrollNet: ')
     [img_pred_text_dv, pred_dist_dv] = process(img_input, flow_gt, zero_dist, flow_pred_dv, 'DepthVelNet: ')
-    [img_pred_text_cg, pred_dist_cg] = process(img_input, flow_gt, zero_dist, flow_pred_cg, 'CV_GT: ')
+    # [img_pred_text_cg, pred_dist_cg] = process(img_input, flow_gt, zero_dist, flow_pred_cg, 'CV_GT: ')
     
-    img_input_text = cv2.putText(img_input, 'Input: {:.2f}'.format(zero_dist), (10,240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2) 
-    img_gt_text = cv2.putText(img_gt, 'Ground-Truth', (10,240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2) 
-    concat_img = cv2.hconcat([img_input_text,img_gt_text,img_pred_text_ur,img_pred_text_dv,img_pred_text_cg])
-    cv2.imwrite('{}images/{}.png'.format(save_dir,i), concat_img)
+    # img_input_text = cv2.putText(img_input, 'Input: {:.2f}'.format(zero_dist), (10,240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2) 
+    # img_gt_text = cv2.putText(img_gt, 'Ground-Truth', (10,240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2) 
+    # concat_img = cv2.hconcat([img_input_text,img_gt_text,img_pred_text_ur,img_pred_text_dv,img_pred_text_cg])
+    # cv2.imwrite('{}images/{}.png'.format(save_dir,i), concat_img)
 
     errs_ur.append(pred_dist_ur)
     errs_dv.append(pred_dist_dv)
-    errs_cg.append(pred_dist_cg)
+    # errs_cg.append(pred_dist_cg)
     wins_ur += (1 if zero_dist > pred_dist_ur else 0)
     wins_dv += (1 if zero_dist > pred_dist_dv else 0)
-    wins_cg += (1 if zero_dist > pred_dist_cg else 0)
+    # wins_cg += (1 if zero_dist > pred_dist_cg else 0)
 
 np.save(save_dir+'errs_unrollnet.npy', np.array(errs_ur))
 np.save(save_dir+'errs_depthvelnet.npy', np.array(errs_dv))
-np.save(save_dir+'errs_cv_gt.npy', np.array(errs_cg))
+# np.save(save_dir+'errs_cv_gt.npy', np.array(errs_cg))
 print ('Improved Ratio:')
 print ('UnrollNet: {}'.format(wins_ur/len(imgs)))
 print ('DepthVelNet: {}'.format(wins_dv/len(imgs)))
-print ('CV_GT: {}'.format(wins_cg/len(imgs)))
-print ('MSE:')
+# print ('CV_GT: {}'.format(wins_cg/len(imgs)))
+print ('EPE:')
 print('UnrollNet err: {}'.format(np.mean(errs_ur)))
 print('DepthVelNet err: {}'.format(np.mean(errs_dv)))
-print('CV_GT err: {}'.format(np.mean(errs_cg)))
+# print('CV_GT err: {}'.format(np.mean(errs_cg)))
