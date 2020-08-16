@@ -24,12 +24,13 @@ _DEFAULT_PWCNET_TEST_OPTIONS = {
     'ckpt_path': 'pwc_models/sintel_gray_weights/pwcnet.sintel_gray.ckpt-54000',
     'controller': '/device:CPU:0',
     'batch_size': 1,
-    'pyr_lvls': 6, 
-    'flow_pred_lvl': 2,  
+    'pyr_lvls': 6,
+    'flow_pred_lvl': 2,
     'search_range': 4
 }
 
 # from ref_model import PWCNet
+
 
 def cost_volume(c1, warp, search_range, name):
     """Build cost volume for associating a pixel from Image1 with its corresponding pixels in Image2.
@@ -38,7 +39,8 @@ def cost_volume(c1, warp, search_range, name):
         warp: Warped level of the feature pyramid of image22
         search_range: Search range (maximum displacement)
     """
-    padded_lvl = tf.pad(warp, [[0, 0], [search_range, search_range], [search_range, search_range], [0, 0]])
+    padded_lvl = tf.pad(warp, [[0, 0], [search_range, search_range], [
+                        search_range, search_range], [0, 0]])
     _, h, w, _ = tf.unstack(tf.shape(c1))
     max_offset = search_range * 2 + 1
 
@@ -52,6 +54,7 @@ def cost_volume(c1, warp, search_range, name):
     cost_vol = tf.nn.leaky_relu(cost_vol, alpha=0.1, name=name)
 
     return cost_vol
+
 
 def _interpolate_bilinear(grid,
                           query_points,
@@ -94,7 +97,8 @@ def _interpolate_bilinear(grid,
 
                 # max_floor is size_in_indexing_dimension - 2 so that max_floor + 1
                 # is still a valid index into the grid.
-                max_floor = math_ops.cast(size_in_indexing_dimension - 2, query_type)
+                max_floor = math_ops.cast(
+                    size_in_indexing_dimension - 2, query_type)
                 min_floor = constant_op.constant(0.0, dtype=query_type)
                 floor = math_ops.minimum(
                     math_ops.maximum(min_floor, math_ops.floor(queries)), max_floor)
@@ -108,7 +112,8 @@ def _interpolate_bilinear(grid,
                 alpha = math_ops.cast(queries - floor, grid_type)
                 min_alpha = constant_op.constant(0.0, dtype=grid_type)
                 max_alpha = constant_op.constant(1.0, dtype=grid_type)
-                alpha = math_ops.minimum(math_ops.maximum(min_alpha, alpha), max_alpha)
+                alpha = math_ops.minimum(
+                    math_ops.maximum(min_alpha, alpha), max_alpha)
 
                 # Expand alpha to [b, n, 1] so we can use broadcasting
                 # (since the alpha values don't depend on the channel).
@@ -127,7 +132,8 @@ def _interpolate_bilinear(grid,
         def gather(y_coords, x_coords, name):
             with ops.name_scope('gather-' + name):
                 linear_coordinates = batch_offsets + y_coords * width + x_coords
-                gathered_values = array_ops.gather(flattened_grid, linear_coordinates)
+                gathered_values = array_ops.gather(
+                    flattened_grid, linear_coordinates)
                 return array_ops.reshape(gathered_values,
                                          [batch_size, num_queries, channels])
 
@@ -140,14 +146,17 @@ def _interpolate_bilinear(grid,
         # now, do the actual interpolation
         with ops.name_scope('interpolate'):
             interp_top = alphas[1] * (top_right - top_left) + top_left
-            interp_bottom = alphas[1] * (bottom_right - bottom_left) + bottom_left
+            interp_bottom = alphas[1] * \
+                (bottom_right - bottom_left) + bottom_left
             interp = alphas[0] * (interp_bottom - interp_top) + interp_top
 
         return interp
 
+
 def dense_image_warp(image, flow, name='dense_image_warp'):
     with ops.name_scope(name):
-        batch_size, height, width, channels = array_ops.unstack(array_ops.shape(image))
+        batch_size, height, width, channels = array_ops.unstack(
+            array_ops.shape(image))
         # The flow is defined on the image grid. Turn the flow into a list of query
         # points in the grid space.
         grid_x, grid_y = array_ops.meshgrid(
@@ -164,6 +173,7 @@ def dense_image_warp(image, flow, name='dense_image_warp'):
         interpolated = array_ops.reshape(interpolated,
                                          [batch_size, height, width, channels])
         return interpolated
+
 
 class ModelPWCNet:
     def __init__(self, name='pwcnet', session=None, options=_DEFAULT_PWCNET_TEST_OPTIONS):
@@ -185,9 +195,11 @@ class ModelPWCNet:
 
             # Build the TF graph
             batch_size = self.opts['batch_size']
-            self.x_tnsr = tf.placeholder(tf.float32, [batch_size] + [2, None, None, 3], 'x_tnsr')
-            self.y_tnsr = tf.placeholder(tf.float32, [batch_size] + [None, None, 2], 'y_tnsr')
-            
+            self.x_tnsr = tf.placeholder(
+                tf.float32, [batch_size] + [2, None, None, 3], 'x_tnsr')
+            self.y_tnsr = tf.placeholder(
+                tf.float32, [batch_size] + [None, None, 2], 'y_tnsr')
+
             # Build the backbone neural nets and collect the output tensors
             with tf.device(self.opts['controller']):
                 self.flow_pred_tnsr, self.flow_pyr_tnsr = self.nn(self.x_tnsr)
@@ -197,7 +209,7 @@ class ModelPWCNet:
 
             # Init saver (override if you wish) and load checkpoint if it exists
             self.saver = tf.train.Saver()
-            
+
             # Initialize the graph with the content of the checkpoint
             self.last_ckpt = os.path.join(os.getcwd(), self.opts['ckpt_path'])
             assert(self.last_ckpt is not None)
@@ -217,7 +229,8 @@ class ModelPWCNet:
             assert (x[0].shape[0] == 2 or x[0].shape[3] == 3)
 
         # Bring image range from 0..255 to 0..1 and use floats (also, list[(2,H,W,3)] -> (batch_size,2,H,W,3))
-        x_adapt = np.array(x, dtype=np.float32) if isinstance(x, list) else x.astype(np.float32)
+        x_adapt = np.array(x, dtype=np.float32) if isinstance(
+            x, list) else x.astype(np.float32)
         x_adapt /= 255.
 
         # Make sure the image dimensions are multiples of 2**pyramid_levels, pad them if they're not
@@ -231,7 +244,8 @@ class ModelPWCNet:
         if pad_h != 0 or pad_w != 0:
             padding = [(0, 0), (0, 0), (0, pad_h), (0, pad_w), (0, 0)]
             x_adapt_info = x_adapt.shape  # Save original shape
-            x_adapt = np.pad(x_adapt, padding, mode='constant', constant_values=0.)
+            x_adapt = np.pad(x_adapt, padding,
+                             mode='constant', constant_values=0.)
 
         return x_adapt, x_adapt_info
 
@@ -272,7 +286,8 @@ class ModelPWCNet:
                     indices = list(range(test_ptr, test_ptr + batch_size))
                 else:
                     new_ptr = (test_ptr + batch_size) % test_size
-                    indices = list(range(test_ptr, test_size)) + list(range(0, new_ptr))
+                    indices = list(range(test_ptr, test_size)) + \
+                        list(range(0, new_ptr))
                 test_ptr = new_ptr
 
                 # Repackage input image pairs as np.ndarray
@@ -282,13 +297,15 @@ class ModelPWCNet:
                 # x: [batch_size,2,H,W,3] uint8; x_adapt: [batch_size,2,H,W,3] float32
                 x_adapt, x_adapt_info = self.adapt_x(x)
                 if x_adapt_info is not None:
-                    y_adapt_info = (x_adapt_info[0], x_adapt_info[2], x_adapt_info[3], 2)
+                    y_adapt_info = (
+                        x_adapt_info[0], x_adapt_info[2], x_adapt_info[3], 2)
                 else:
                     y_adapt_info = None
 
                 # Run the adapted samples through the network
                 feed_dict = {self.x_tnsr: x_adapt}
-                y_hat = self.sess.run(self.y_hat_test_tnsr, feed_dict=feed_dict)
+                y_hat = self.sess.run(
+                    self.y_hat_test_tnsr, feed_dict=feed_dict)
                 y_hats, _ = self.postproc_y_hat_test(y_hat, y_adapt_info)
 
                 # Return flat list of predicted labels
@@ -313,11 +330,14 @@ class ModelPWCNet:
                     # reuse is set to True because we want to learn a single set of weights for the pyramid
                     # kernel_initializer = 'he_normal' or tf.keras.initializers.he_normal(seed=None)
                     f = num_chann[lvl]
-                    x = tf.layers.conv2d(x, f, 3, 2, 'same', kernel_initializer=init, name='conv{}a'.format(lvl), reuse=reuse)
-                    x = tf.nn.leaky_relu(x, alpha=0.1)  
-                    x = tf.layers.conv2d(x, f, 3, 1, 'same', kernel_initializer=init, name='conv{}aa'.format(lvl), reuse=reuse)
-                    x = tf.nn.leaky_relu(x, alpha=0.1) 
-                    x = tf.layers.conv2d(x, f, 3, 1, 'same', kernel_initializer=init, name='conv{}b'.format(lvl), reuse=reuse)
+                    x = tf.layers.conv2d(
+                        x, f, 3, 2, 'same', kernel_initializer=init, name='conv{}a'.format(lvl), reuse=reuse)
+                    x = tf.nn.leaky_relu(x, alpha=0.1)
+                    x = tf.layers.conv2d(
+                        x, f, 3, 1, 'same', kernel_initializer=init, name='conv{}aa'.format(lvl), reuse=reuse)
+                    x = tf.nn.leaky_relu(x, alpha=0.1)
+                    x = tf.layers.conv2d(
+                        x, f, 3, 1, 'same', kernel_initializer=init, name='conv{}b'.format(lvl), reuse=reuse)
                     x = tf.nn.leaky_relu(x, alpha=0.1, name=str(name)+str(lvl))
                     pyr.append(x)
         return c1, c2
@@ -356,25 +376,32 @@ class ModelPWCNet:
             else:
                 x = tf.concat([corr, c1, up_flow, up_feat], axis=3)
 
-            conv = tf.layers.conv2d(x, 128, 3, 1, 'same', kernel_initializer=init, name='conv{}_0'.format(lvl))
-            act = tf.nn.leaky_relu(conv, alpha=0.1)  # default alpha is 0.2 for TF
-            x = tf.concat([act, x], axis=3) 
-
-            conv = tf.layers.conv2d(x, 128, 3, 1, 'same', kernel_initializer=init, name='conv{}_1'.format(lvl))
+            conv = tf.layers.conv2d(
+                x, 128, 3, 1, 'same', kernel_initializer=init, name='conv{}_0'.format(lvl))
+            # default alpha is 0.2 for TF
             act = tf.nn.leaky_relu(conv, alpha=0.1)
-            x = tf.concat([act, x], axis=3) 
+            x = tf.concat([act, x], axis=3)
 
-            conv = tf.layers.conv2d(x, 96, 3, 1, 'same', kernel_initializer=init, name='conv{}_2'.format(lvl))
+            conv = tf.layers.conv2d(
+                x, 128, 3, 1, 'same', kernel_initializer=init, name='conv{}_1'.format(lvl))
             act = tf.nn.leaky_relu(conv, alpha=0.1)
-            x = tf.concat([act, x], axis=3) 
+            x = tf.concat([act, x], axis=3)
 
-            conv = tf.layers.conv2d(x, 64, 3, 1, 'same', kernel_initializer=init, name='conv{}_3'.format(lvl))
+            conv = tf.layers.conv2d(
+                x, 96, 3, 1, 'same', kernel_initializer=init, name='conv{}_2'.format(lvl))
             act = tf.nn.leaky_relu(conv, alpha=0.1)
-            x = tf.concat([act, x], axis=3) 
+            x = tf.concat([act, x], axis=3)
 
-            conv = tf.layers.conv2d(x, 32, 3, 1, 'same', kernel_initializer=init, name='conv{}_4'.format(lvl))
-            act = tf.nn.leaky_relu(conv, alpha=0.1)  # will also be used as an input by the context network
-            upfeat = tf.concat([act, x], axis=3, name='upfeat'+str(lvl)) 
+            conv = tf.layers.conv2d(
+                x, 64, 3, 1, 'same', kernel_initializer=init, name='conv{}_3'.format(lvl))
+            act = tf.nn.leaky_relu(conv, alpha=0.1)
+            x = tf.concat([act, x], axis=3)
+
+            conv = tf.layers.conv2d(
+                x, 32, 3, 1, 'same', kernel_initializer=init, name='conv{}_4'.format(lvl))
+            # will also be used as an input by the context network
+            act = tf.nn.leaky_relu(conv, alpha=0.1)
+            upfeat = tf.concat([act, x], axis=3, name='upfeat'+str(lvl))
 
             flow = tf.layers.conv2d(upfeat, 2, 3, 1, 'same', name=op_name)
 
@@ -387,19 +414,26 @@ class ModelPWCNet:
         op_name = 'refined_flow'+str(lvl)
         init = tf.keras.initializers.he_normal()
         with tf.variable_scope(name):
-            x = tf.layers.conv2d(feat, 128, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name='dc_conv{}1'.format(lvl))
+            x = tf.layers.conv2d(feat, 128, 3, 1, 'same', dilation_rate=1,
+                                 kernel_initializer=init, name='dc_conv{}1'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)  # default alpha is 0.2 for TF
-            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=2, kernel_initializer=init, name='dc_conv{}2'.format(lvl))
+            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=2,
+                                 kernel_initializer=init, name='dc_conv{}2'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=4, kernel_initializer=init, name='dc_conv{}3'.format(lvl))
+            x = tf.layers.conv2d(x, 128, 3, 1, 'same', dilation_rate=4,
+                                 kernel_initializer=init, name='dc_conv{}3'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 96, 3, 1, 'same', dilation_rate=8, kernel_initializer=init, name='dc_conv{}4'.format(lvl))
+            x = tf.layers.conv2d(x, 96, 3, 1, 'same', dilation_rate=8,
+                                 kernel_initializer=init, name='dc_conv{}4'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 64, 3, 1, 'same', dilation_rate=16, kernel_initializer=init, name='dc_conv{}5'.format(lvl))
+            x = tf.layers.conv2d(x, 64, 3, 1, 'same', dilation_rate=16,
+                                 kernel_initializer=init, name='dc_conv{}5'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 32, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name='dc_conv{}6'.format(lvl))
+            x = tf.layers.conv2d(x, 32, 3, 1, 'same', dilation_rate=1,
+                                 kernel_initializer=init, name='dc_conv{}6'.format(lvl))
             x = tf.nn.leaky_relu(x, alpha=0.1)
-            x = tf.layers.conv2d(x, 2, 3, 1, 'same', dilation_rate=1, kernel_initializer=init, name='dc_conv{}7'.format(lvl))
+            x = tf.layers.conv2d(x, 2, 3, 1, 'same', dilation_rate=1,
+                                 kernel_initializer=init, name='dc_conv{}7'.format(lvl))
 
             return tf.add(flow, x, name=op_name)
 
@@ -421,7 +455,8 @@ class ModelPWCNet:
                     corr = self.corr(c1[lvl], c2[lvl], lvl)
 
                     # Estimate the optical flow
-                    upfeat, flow = self.predict_flow(corr, None, None, None, lvl)
+                    upfeat, flow = self.predict_flow(
+                        corr, None, None, None, lvl)
                 else:
                     # Warp level of Image1's using the upsampled flow
                     scaler = 20. / 2**lvl  # scaler values are 0.625, 1.25, 2.5, 5.0
@@ -431,7 +466,8 @@ class ModelPWCNet:
                     corr = self.corr(c1[lvl], warp, lvl)
 
                     # Estimate the optical flow
-                    upfeat, flow = self.predict_flow(corr, c1[lvl], up_flow, up_feat, lvl)
+                    upfeat, flow = self.predict_flow(
+                        corr, c1[lvl], up_flow, up_feat, lvl)
 
                 _, lvl_height, lvl_width, _ = tf.unstack(tf.shape(c1[lvl]))
 
@@ -451,7 +487,8 @@ class ModelPWCNet:
                     # Upsample the predicted flow (final output) to match the size of the images
                     scaler = 2**self.opts['flow_pred_lvl']
                     size = (lvl_height * scaler, lvl_width * scaler)
-                    flow_pred = tf.image.resize_bilinear(flow, size, name="flow_pred") * scaler
+                    flow_pred = tf.image.resize_bilinear(
+                        flow, size, name="flow_pred") * scaler
                     break
 
             return flow_pred, flow_pyr

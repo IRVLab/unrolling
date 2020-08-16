@@ -2,7 +2,8 @@ __pycache__/
 *.pyc
 *.npy
 
+.vscode/
 tum_process/pwc_models/
 data/
-checkpoints/
+model/checkpoints/
 test_results/
