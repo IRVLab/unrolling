@@ -12,7 +12,6 @@ from model.depthnet import DepthNet
 from model.anchornet import AnchorNet
 from data_loader import dataLoader
 
-
 def projectPoint(ua, va, da, cam_a, T_b_a, cam_b):
     Xa = np.ones([3, 1], dtype=np.float32)
     Xa[0] = (ua-cam_a[2]) / cam_a[0]
@@ -24,7 +23,8 @@ def projectPoint(ua, va, da, cam_a, T_b_a, cam_b):
     return [ub, vb]
 
 
-def getGS2RSFlow(depth_rs, cam1, anchors_t_r, rot_weight):
+def getGS2RSFlow(depth_rs, cam1, anchors, rot_weight):
+    anchors_t_r = np.reshape(anchors, (-1, 6))
     num_anchor = len(anchors_t_r)
     h, w = depth_rs.shape[:2]
     flow_gs2rs = np.empty([h, w, 2], dtype=np.float32)
@@ -101,6 +101,7 @@ data_loader = dataLoader([test_seq])
 imgs = data_loader.loadTestingImg()
 depths = data_loader.loadTestingDepth()
 flows = data_loader.loadTestingFlow()
+anchors = data_loader.loadTestingAnchor(num_anchor, rot_weight)
 cam1 = np.load(os.path.join(os.getcwd(), "data/seq1/cam1/camera.npy"))
 
 # load model
@@ -113,7 +114,7 @@ anchornet.model.load_weights(os.path.join(os.getcwd(
 
 # path to save results
 save_dir = os.path.join(
-    os.getcwd(), "test_results/{}/{}/".format(rot_weight, num_anchor))
+    os.getcwd(), "test_results/{}/{}/{}/".format(rot_weight, num_anchor, test_seq))
 if not os.path.exists(save_dir+'images/'):
     os.makedirs(save_dir+'images/')
 
@@ -121,16 +122,15 @@ win_dv = 0
 err_dv = []
 for i in tqdm(range(len(imgs))):
     img_input = np.expand_dims(imgs[i], 0)  # (1, h, w, 1)
+    flow_gt = flows[i]
 
     depth_pred = depthnet.model.predict(img_input)[0]
     anchor_pred = anchornet.model.predict(img_input)[0]
-    anchor_pred = np.reshape(anchor_pred, (-1, 6))
 
     flow_pred = getGS2RSFlow(depth_pred, cam1, anchor_pred, rot_weight)
     img_rectified = rectifyImgByFlow(img_input[0], flow_pred)
     cv2.imwrite('{}images/{}.png'.format(save_dir, i), img_rectified)
 
-    flow_gt = flows[i]
     pred_dist = np.nanmean(
         np.sqrt(np.sum(np.square(flow_gt-flow_pred), axis=-1)))
     zero_dist = np.nanmean(np.sqrt(np.sum(np.square(flow_gt), axis=-1)))

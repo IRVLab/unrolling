@@ -6,17 +6,22 @@ from data_loader import dataLoader
 
 rot_weight = 10
 num_anchor = 4
+test_seqs = [2, 9]
+
 step = 200
 colors = ['r', 'g', 'b', 'c']
 
 # load data
-data_loader = dataLoader()
+data_loader = dataLoader(test_seqs=test_seqs)
 accs = data_loader.loadTestingAcceleration()
 
-errs = np.empty((num_anchor, accs.shape[0]))
-for i in range(num_anchor):
-    errs[i, :] = np.load(os.path.join(
-        os.getcwd(), 'test_results/{}/{}/errs.npy'.format(rot_weight, i+1)))
+errs = []
+for anchor in range(num_anchor):
+    errs_anchor = []
+    for test_seq in test_seqs:
+        errs_anchor = np.concatenate((errs_anchor, np.load(os.path.join(
+            os.getcwd(), 'test_results/{}/{}/{}/errs.npy'.format(rot_weight, anchor+1, test_seq)))))
+    errs.append(errs_anchor)
 
 # sort data by acceleration
 acc_t_idx = np.argsort(accs[:, 0])
@@ -30,7 +35,7 @@ plt.figure()
 plt.subplot(1, 2, 1)
 min_err, max_err = 100, -1
 for anchor_i in range(num_anchor):
-    acc_t_err = errs[anchor_i, acc_t_idx]
+    acc_t_err = errs[anchor_i][acc_t_idx]
     ave_acc_t, ave_err_t = [], []
     for cur_i in range(total_count-step):
         ave_acc_t.append(np.mean(acc_t[cur_i:cur_i+step]))
@@ -46,7 +51,7 @@ plt.ylim([min_err, max_err])
 plt.legend(loc='upper left')
 plt.subplot(1, 2, 2)
 for anchor_i in range(num_anchor):
-    acc_r_err = errs[anchor_i, acc_r_idx]
+    acc_r_err = errs[anchor_i][acc_r_idx]
     ave_acc_r, ave_err_r = [], []
     for cur_i in range(total_count-step):
         ave_acc_r.append(np.mean(acc_r[cur_i:cur_i+step]))
@@ -56,7 +61,7 @@ for anchor_i in range(num_anchor):
     min_err = min([min_err, min(ave_err_r)])
     max_err = max([max_err, max(ave_err_r)])
 plt.grid()
-plt.xlabel('Rot. Acc. (rad/s2)')
+plt.xlabel('Rot. Acc. (deg/s2)')
 plt.ylabel('EPE')
 plt.ylim([min_err, max_err])
 plt.legend(loc='upper left')

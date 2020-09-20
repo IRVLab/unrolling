@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 *.npy
+*.run
 
 .vscode/
 tum_process/pwc_models/

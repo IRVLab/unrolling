@@ -100,12 +100,12 @@ class dataLoader():
     def loadTestingFlow(self):
         return self.loadFlow(self.test_flow_paths)
 
-    def loadTrainingAnchor(self, num_anchor, rot_weight):
+    def loadAnchor(self, anchor_paths, num_anchor, rot_weight):
         train_anchors = []
-        for i in range(self.train_anchors.shape[0]):
+        for i in range(anchor_paths.shape[0]):
             anchors = []
             for j in range(1, num_anchor+1):
-                anchor = self.train_anchors[i][int(
+                anchor = anchor_paths[i][int(
                     j*self.getImgShape()[0]/num_anchor+0.5)-1]
                 for k in range(3):
                     anchors.append(anchor[k])
@@ -114,6 +114,12 @@ class dataLoader():
             train_anchors.append(anchors)
         train_anchors = np.array(train_anchors)
         return train_anchors
+
+    def loadTrainingAnchor(self, num_anchor, rot_weight):
+        return self.loadAnchor(self.train_anchors, num_anchor, rot_weight)
+
+    def loadTestingAnchor(self, num_anchor, rot_weight):
+        return self.loadAnchor(self.test_anchors, num_anchor, rot_weight)
 
     def loadTestingAcceleration(self):
         accs = []
