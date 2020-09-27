@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 from keras.models import Input, Model
-from keras.layers import Conv2D, BatchNormalization, Activation, MaxPooling2D, AveragePooling2D, add, Dense, Flatten
+from keras.layers import Conv2D, BatchNormalization, Activation, MaxPooling2D, AveragePooling2D, add, Flatten, Concatenate, Add
 from keras.applications.vgg16 import VGG16
 
 def Conv2d_BN_Relu(x, filters, kernel_size, name, strides=(1, 1), padding='same'):
@@ -46,8 +46,28 @@ class AnchorNet():
             img = Input(shape=(im_res[0], im_res[1], 1)) 
             enc_fetures = self.ResNet34(img)
         # propagate features
-        velocity_est = self.VelocityNet(enc_fetures, num_anchor)  
+        velocity_0 = self.VelocityNet(enc_fetures, num_anchor)
+        velocity_est = self.ResRefNet(velocity_0, num_anchor)   
         self.model = Model(inputs=img, outputs=velocity_est)
+
+
+    def ResRefNet(self, v0, num_anchor):
+        # ResRefBlock 1 
+        v1 = Conv2d_BN_Relu(v0, 6*num_anchor, (3, 3), name='vref1')
+        v2 = Conv2d_BN_Relu(v1, 6*num_anchor, (3, 3), name='vref2')
+        v2_conc = Concatenate(name='vref2_conc')([v1, v2])
+        # ResRefBlock 2 
+        v3 = Conv2d_BN_Relu(v2_conc, 6*num_anchor, (3, 3), name='vref3')
+        v4 = Conv2d_BN_Relu(v3, 6*num_anchor, (3, 3), name='vref4')
+        v4_conc = Concatenate(name='vref4_conc')([v3, v4])
+        # ResRefBlock 3 (add residual) 
+        v5 = Conv2d_BN_Relu(v4_conc, 6*num_anchor, (3, 3), name='vref5')
+        v_res = Add(name='v_res')([v5, v0])
+        # Same as before
+        x = Conv2D(6*num_anchor, kernel_size=(1, 1), name='V5_ref')(v_res)  # ?x8x10x(6*num_anchor)
+        x = AveragePooling2D(pool_size=(self.im_res[0]/32, self.im_res[1]/32))(x) # ?x1x1x(6*num_anchor)   1by1 conv
+        vel = Flatten()(x)   # ?x(6*num_anchor)
+        return vel
 
 
     def VelocityNet(self, fx, num_anchor):
@@ -57,11 +77,9 @@ class AnchorNet():
         x = Conv2d_BN_Relu(x, filters=128, kernel_size=(3, 3), name='V2')
         x = Conv2d_BN_Relu(x, filters=64, kernel_size=(3, 3), name='V3')
         x = Conv2d_BN_Relu(x, filters=32, kernel_size=(3, 3), name='V4') # ?x8x10x32
-
-        x = Conv2D(6*num_anchor, kernel_size=(1, 1), name='V5')(x)  # ?x8x10x(6*num_anchor)
-        x = AveragePooling2D(pool_size=(self.im_res[0]/32, self.im_res[1]/32))(x) # ?x1x1x(6*num_anchor)   1by1 conv
-        vel = Flatten()(x)   # ?x(6*num_anchor)
-        return vel
+        # return # ? x 8 x 10 x ( 6 * num_anchor) fetures
+        x = Conv2D(6*num_anchor, kernel_size=(1, 1), name='V5')(x)  
+        return x
 
 
     def VGG16(self, inp_shape):

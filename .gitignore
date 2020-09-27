@@ -3,6 +3,7 @@ __pycache__/
 *.npy
 *.run
 
+logs/
 .vscode/
 tum_process/pwc_models/
 data/

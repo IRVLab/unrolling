@@ -6,125 +6,127 @@ import csv
 import math
 from numpy import linalg as LA
 
+
 class dataLoader():
-    def __init__(self, test_seqs=[2, 9]):
-        self.data_path = os.path.join(os.getcwd(), "data/")
-        self.img_folder = "cam1/images/"
-        self.flow_folder = "cam1/flows_gs2rs/"
-        self.depth_folder = "cam1/depth/"
-        self.anchor_file = "cam1/poses_cam1_v1.npy"
-        self.acc_file = "cam1/acc_t_r.npy"
-        train_seqs = [1, 3, 4, 5, 6, 7, 8, 10]
+    def __init__(self):
+        self.trans_weight = 0.3
+        self.step = 1
+        data_path = os.path.join(os.getcwd(), "data/")
+        seqs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
         # get training paths
-        self.train_img_paths, self.train_flow_paths, self.train_depth_paths, _ = self.readData(
-            train_seqs)
-        self.train_anchors = self.readAnchors(train_seqs)
-
-        # get testing paths
-        self.test_img_paths, self.test_flow_paths, self.test_depth_paths, self.test_accs = self.readData(
-            test_seqs)
-        self.test_anchors = self.readAnchors(test_seqs)
-
-    def readData(self, seqs):
-        img_paths, flow_paths, depth_paths = [], [], []
-        accs = np.empty((0, 6))
+        self.img_paths, self.flow_paths, self.depth_paths = [], [], []
+        self.accs = np.empty((0, 6))
         for seq in seqs:
-            data_dir = os.path.join(self.data_path, 'seq'+str(seq))
+            data_dir = os.path.join(data_path, 'seq'+str(seq))
             cur_img_count = os.listdir(
-                os.path.join(data_dir, self.flow_folder))
+                os.path.join(data_dir, "cam1/flows_gs2rs/"))
             for fi in range(len(cur_img_count)):
-                img_paths.append(os.path.join(
-                    data_dir, self.img_folder, str(fi)+'.png'))
-                flow_paths.append(os.path.join(
-                    data_dir, self.flow_folder, str(fi)+'.npy'))
-                depth_paths.append(os.path.join(
-                    data_dir, self.depth_folder, str(fi)+'.npy'))
+                self.img_paths.append(os.path.join(
+                    data_dir, "cam1/images/", str(fi)+'.png'))
+                self.flow_paths.append(os.path.join(
+                    data_dir, "cam1/flows_gs2rs/", str(fi)+'.npy'))
+                self.depth_paths.append(os.path.join(
+                    data_dir, "cam1/depth/", str(fi)+'.npy'))
 
-            cur_accs = np.load(os.path.join(data_dir, self.acc_file))
-            accs = np.concatenate((accs, cur_accs))
-        return img_paths, flow_paths, depth_paths, accs
+            cur_accs = np.load(os.path.join(data_dir, "cam1/acc_t_r.npy"))
+            self.accs = np.concatenate((self.accs, cur_accs))
 
-    def readAnchors(self, seqs):
-        anchors = np.empty((0, self.getImgShape()[0], 6))
+        self.anchors = np.empty((0, self.getImgShape()[0], 6))
         for seq in seqs:
-            data_dir = os.path.join(self.data_path, 'seq'+str(seq))
-            cur_anchors = np.load(os.path.join(data_dir, self.anchor_file))
-            anchors = np.concatenate((anchors, cur_anchors))
-        return anchors
+            data_dir = os.path.join(data_path, 'seq'+str(seq))
+            cur_anchors = np.load(os.path.join(data_dir, "cam1/poses_cam1_v1.npy"))
+            self.anchors = np.concatenate((self.anchors, cur_anchors))
+
+        self.train_idx = np.load("data/train_idx.npy")
+        self.val_idx = np.load("data/val_idx.npy")
+        self.test_idx = np.load("data/test_idx.npy")
 
     def getImgShape(self):
-        img = cv2.imread(self.train_img_paths[0], 0)
+        img = cv2.imread(self.img_paths[0], 0)
         return img.shape[:2]
 
-    def loadImg(self, img_paths):
+    def loadImg(self, idx, grayscale):
         imgs = []
-        for i in range(len(img_paths)):
-            img = cv2.imread(img_paths[i], 0)
+        for i in range(0, idx.shape[0], self.step):
+            if grayscale:
+                img = cv2.imread(self.img_paths[idx[i]], 0) / 255
+                img = np.expand_dims(img, -1)
+            else:
+                img = cv2.imread(self.img_paths[idx[i]]) / 255
             imgs.append(img)
-        imgs = np.expand_dims(np.array(imgs), -1)
-        return imgs
+        return np.array(imgs)
 
-    def loadTrainingImg(self):
-        return self.loadImg(self.train_img_paths)
+    def loadTrainingImg(self, grayscale=False):
+        return self.loadImg(self.train_idx, grayscale)
 
-    def loadTestingImg(self):
-        return self.loadImg(self.test_img_paths)
+    def loadValidationImg(self, grayscale=False):
+        return self.loadImg(self.val_idx, grayscale)
 
-    def loadDepth(self, depth_paths):
+    def loadTestingImg(self, grayscale=False):
+        return self.loadImg(self.test_idx, grayscale)
+
+    def loadDepth(self, idx):
         depths = []
-        for i in range(len(depth_paths)):
-            depth = np.load(depth_paths[i])
+        for i in range(0, idx.shape[0], self.step):
+            depth = np.load(self.depth_paths[idx[i]])
             depth = np.expand_dims(depth, -1)
             depths.append(depth)
         depths = np.array(depths)
         return depths
 
     def loadTrainingDepth(self):
-        return self.loadDepth(self.train_depth_paths)
+        return self.loadDepth(self.train_idx)
+
+    def loadValidationDepth(self):
+        return self.loadDepth(self.val_idx)
 
     def loadTestingDepth(self):
-        return self.loadDepth(self.test_depth_paths)
+        return self.loadDepth(self.test_idx)
 
-    def loadFlow(self, flow_paths):
+    def loadFlow(self, idx):
         flows = []
-        for i in range(len(flow_paths)):
-            flow = np.load(flow_paths[i])
+        for i in range(0, idx.shape[0], self.step):
+            flow = np.load(self.flow_paths[idx[i]])
             flows.append(flow)
         flows = np.array(flows)
         return flows
 
     def loadTrainingFlow(self):
-        return self.loadFlow(self.train_flow_paths)
+        return self.loadFlow(self.train_idx)
+
+    def loadValidationFlow(self):
+        return self.loadFlow(self.val_idx)
 
     def loadTestingFlow(self):
-        return self.loadFlow(self.test_flow_paths)
+        return self.loadFlow(self.test_idx)
 
-    def loadAnchor(self, anchor_paths, num_anchor, rot_weight):
-        train_anchors = []
-        for i in range(anchor_paths.shape[0]):
-            anchors = []
-            for j in range(1, num_anchor+1):
-                anchor = anchor_paths[i][int(
-                    j*self.getImgShape()[0]/num_anchor+0.5)-1]
-                for k in range(3):
-                    anchors.append(anchor[k])
-                for k in range(3, 6):
-                    anchors.append(rot_weight*anchor[k])
-            train_anchors.append(anchors)
-        train_anchors = np.array(train_anchors)
-        return train_anchors
+    def loadAnchor(self, idx, num_anchor):
+        anchors = []
+        for i in range(0, idx.shape[0], self.step):
+            anchors_i = np.empty((num_anchor, 6))
+            for ai in range(1, num_anchor+1):
+                cur_anchor = self.anchors[idx[i]][int(
+                    ai*self.getImgShape()[0]/num_anchor+0.5)-1]
+                cur_anchor[:3] = self.trans_weight*cur_anchor[:3]
+                anchors_i[ai-1] = cur_anchor
+            anchors.append(anchors_i.flatten())
+        anchors = np.array(anchors)
+        return anchors
 
-    def loadTrainingAnchor(self, num_anchor, rot_weight):
-        return self.loadAnchor(self.train_anchors, num_anchor, rot_weight)
+    def loadTrainingAnchor(self, num_anchor):
+        return self.loadAnchor(self.train_idx, num_anchor)
 
-    def loadTestingAnchor(self, num_anchor, rot_weight):
-        return self.loadAnchor(self.test_anchors, num_anchor, rot_weight)
+    def loadValidationAnchor(self, num_anchor):
+        return self.loadAnchor(self.val_idx, num_anchor)
+
+    def loadTestingAnchor(self, num_anchor):
+        return self.loadAnchor(self.test_idx, num_anchor)
 
     def loadTestingAcceleration(self):
         accs = []
-        for i in range(self.test_accs.shape[0]):
-            acc = self.test_accs[i]
+        for i in range(0, self.test_idx.shape[0], self.step):
+            acc = self.accs[self.test_idx[i]]
             at = LA.norm(acc[:3])
             ar = LA.norm(acc[3:])
             accs.append([at, ar])
