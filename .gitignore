@@ -1,11 +1,9 @@
-__pycache__/
-*.pyc
-*.npy
-*.run
+*__pycache__*
+*.sh
 
-logs/
+.logs/
 .vscode/
 tum_process/pwc_models/
 data/
-model/checkpoints/
+checkpoints/
 test_results/

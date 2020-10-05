@@ -9,17 +9,17 @@ python3 tum_process/tum_process.py
 python3 -m train_depth
 python3 -m train_anchor --num_anchor=1
 python3 -m train_anchor --num_anchor=2
-python3 -m train_anchor --num_anchor=3
 python3 -m train_anchor --num_anchor=4
+python3 -m train_anchor --num_anchor=8
 ```
 3. Testing
 ```
 python3 -m test  --num_anchor=1
 python3 -m test  --num_anchor=2
-python3 -m test  --num_anchor=3
 python3 -m test  --num_anchor=4
+python3 -m test  --num_anchor=8
 ```
-4. Check undistorted images in **_test_results_** folder, plot errors
+4. Plot errors
 ```
 python3 -m view_errs
 ```

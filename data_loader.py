@@ -10,6 +10,7 @@ from numpy import linalg as LA
 class dataLoader():
     def __init__(self):
         self.trans_weight = 0.3
+        self.inverse_depth = False
         self.step = 1
         data_path = os.path.join(os.getcwd(), "data/")
         seqs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -35,7 +36,8 @@ class dataLoader():
         self.anchors = np.empty((0, self.getImgShape()[0], 6))
         for seq in seqs:
             data_dir = os.path.join(data_path, 'seq'+str(seq))
-            cur_anchors = np.load(os.path.join(data_dir, "cam1/poses_cam1_v1.npy"))
+            cur_anchors = np.load(os.path.join(
+                data_dir, "cam1/poses_cam1_v1.npy"))
             self.anchors = np.concatenate((self.anchors, cur_anchors))
 
         self.train_idx = np.load("data/train_idx.npy")
@@ -73,6 +75,8 @@ class dataLoader():
             depth = np.expand_dims(depth, -1)
             depths.append(depth)
         depths = np.array(depths)
+        if self.inverse_depth:
+            depths = np.reciprocal(depths)
         return depths
 
     def loadTrainingDepth(self):
@@ -129,5 +133,5 @@ class dataLoader():
             acc = self.accs[self.test_idx[i]]
             at = LA.norm(acc[:3])
             ar = LA.norm(acc[3:])
-            accs.append([at, ar])
+            accs.append(at*self.trans_weight+ar)
         return np.array(accs)

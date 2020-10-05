@@ -108,9 +108,7 @@ def EncoderNet(img_input):
     # en_layer5
     x = resEncoderBlock(x, filters=512, strides=2, stage=5)
     # en_layer6
-    x = resEncoderBlock(x, filters=512, strides=1, stage=6)
-
-    features = x
+    features = resEncoderBlock(x, filters=512, strides=1, stage=6)
 
     return features
 
@@ -142,7 +140,7 @@ class UnrollNet():
         self.model = Model(input=img_rs, output=flow_gs2rs)
 
     def flowLoss(self, y_true, y_pred):
-        diff = tf.where(tf.math.is_nan(y_true),
+        diff = tf.where(tf.is_nan(y_true),
                         tf.zeros_like(y_true), y_true-y_pred)
         mean = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(diff), -1)))
         return mean

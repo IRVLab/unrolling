@@ -22,10 +22,10 @@ v_imgs = data_loader.loadValidationImg()
 v_anchors = data_loader.loadValidationAnchor(num_anchor)
 
 # load model
-model_loader = AnchorNet(data_loader.getImgShape(), num_anchor)
+anchornet = AnchorNet(data_loader.getImgShape(), num_anchor)
 
 # checkpoint
-checkpoint_dir = os.path.join(os.getcwd(), "model/checkpoints/")
+checkpoint_dir = os.path.join(os.getcwd(), "checkpoints/")
 if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
 ckpt_name = os.path.join(
@@ -34,7 +34,7 @@ checkpoint_cb = ModelCheckpoint(
     ckpt_name, save_weights_only=True, save_best_only=True)
 
 # tensorboard
-tensorboard_cb = TensorBoard(log_dir='./logs/{}'.format(num_anchor))
+tensorboard_cb = TensorBoard(log_dir='./.logs/{}'.format(num_anchor))
 
 # parameters
 epochs = 200
@@ -43,7 +43,7 @@ lr = 1e-4
 decay = 9 / (epochs * imgs.shape[0] / batch_size)  # decay by 0.1 at the end
 
 # training
-model_loader.model.compile(optimizer=Adam(lr=lr, decay=decay), loss='mse')
-# model_loader.model.load_weights(ckpt_name)
-model_loader.model.fit(imgs, anchors, validation_data=(v_imgs, v_anchors), batch_size=batch_size,
-                       epochs=epochs, callbacks=[checkpoint_cb, tensorboard_cb])
+anchornet.model.compile(optimizer=Adam(lr=lr, decay=decay), loss='mse')
+# anchornet.model.load_weights(ckpt_name)
+anchornet.model.fit(imgs, anchors, validation_data=(v_imgs, v_anchors), batch_size=batch_size,
+                    epochs=epochs, callbacks=[checkpoint_cb, tensorboard_cb])

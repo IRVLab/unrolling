@@ -43,23 +43,11 @@ class Pose:
         T[0:3, 3] = self.t_spline(query_ns)
         return T
 
-    def getVelBetween(self, ns_a, ns_b):
-        dur_s = (ns_b-ns_a) / 1e9
-        T_w_0 = self.getPoseAt(ns_a)
-        T_w_1 = self.getPoseAt(ns_b)
-        T_0_1 = np.matmul(LA.inv(T_w_0), T_w_1)
-        vt = T_0_1[0:3, 3] / dur_s
-        vr = Rotation.from_matrix(T_0_1[0:3, 0:3]).as_rotvec() / dur_s
-        return np.array([vt[0], vt[1], vt[2], vr[0], vr[1], vr[2]])
-
-    def getAccBetween(self, ns_a, ns_b):
-        dur_s = (ns_b-ns_a) / 1e9 / 2
-        v0 = self.getVelBetween(ns_a, (ns_a+ns_b)/2)
-        v1 = self.getVelBetween((ns_a+ns_b)/2, ns_b)
-        v0[3:] = Rotation.from_rotvec(v0[3:]).as_euler('zxy')
-        v1[3:] = Rotation.from_rotvec(v1[3:]).as_euler('zxy')
-        atar = (v1-v0) / dur_s
-        return atar
+    def getAccAt(self, query_ns):
+        acc = np.empty(6)
+        acc[:3] = self.t_spline(query_ns, 2) / 1e-18  # convert from ns to s
+        acc[3:] = self.R_spline(query_ns, 2) / 1e-18
+        return acc
 
 
 def getPoses(data_dir, save_dir, img_h, ns_per_v):
@@ -107,8 +95,7 @@ def getPoses(data_dir, save_dir, img_h, ns_per_v):
         T_cam0_v1.append(T_cam0_v1_i)
         pose_cam1_v1.append(pose_cam1_v1_i)
 
-        acc_t_r.append(gt_pose_cam1.getAccBetween(
-            img_ns[i], img_ns[i]+ns_per_v*(img_h-1)))
+        acc_t_r.append(gt_pose_cam1.getAccAt(img_ns[i]+ns_per_v*(img_h-1)/2))
 
     ns_path = os.path.join(save_dir, "valid_ns.npy")
     np.save(ns_path, np.array(valid_ns))
@@ -117,7 +104,7 @@ def getPoses(data_dir, save_dir, img_h, ns_per_v):
     np.save(pose0_path, np.array(T_cam0_v1))
 
     pose1w_path = os.path.join(save_dir, "cam1/pose_w_cam1.txt")
-    np.savetxt(pose1w_path, np.array(pose_w_cam1), delimiter=',')   
+    np.savetxt(pose1w_path, np.array(pose_w_cam1), delimiter=',')
 
     pose1_path = os.path.join(save_dir, "cam1/poses_cam1_v1.npy")
     np.save(pose1_path, np.array(pose_cam1_v1))

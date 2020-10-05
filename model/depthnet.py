@@ -62,9 +62,7 @@ class DepthNet():
         self.model = Model(input=img, output=depth)
 
     def depthLoss(self, y_true, y_pred):
-        diff = y_true-y_pred
-        mask = tf.math.is_nan(diff)
-        count = tf.reduce_sum(1 - tf.cast(mask, diff.dtype))
-        diff = tf.where(mask, tf.zeros_like(diff), diff)
-        mean = tf.reduce_sum(tf.square(diff)) / count
+        diff = tf.where(tf.is_nan(y_true),
+                        tf.zeros_like(y_true), y_true-y_pred)
+        mean = tf.sqrt(tf.reduce_mean(tf.square(diff)))
         return mean
