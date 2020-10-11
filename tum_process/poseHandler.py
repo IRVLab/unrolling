@@ -50,21 +50,21 @@ class Pose:
         return acc
 
 
-def getPoses(data_dir, save_dir, img_h, ns_per_v):
+def getPoses(data_path, save_path, img_h, ns_per_v):
     # image name/time_ns
     img_ns = []
-    times = open(data_dir+'cam0/times.txt').read().splitlines()
+    times = open(data_path+'cam0/times.txt').read().splitlines()
     for i in range(1, len(times)):
         cur_ns = times[i].split(' ')[0]
         img_ns.append(int(cur_ns))
 
     # pose ground truth
-    cam1 = np.load(save_dir+"cam1/camera.npy")
+    cam1 = np.load(save_path+"cam1/camera.npy")
     T_cam0_cam1 = np.identity(4)
     T_cam0_cam1[0, 3] = -cam1[4]
-    T_imu_cam0 = np.load(save_dir+"cam0/T_imu_cam0.npy")
+    T_imu_cam0 = np.load(save_path+"cam0/T_imu_cam0.npy")
     T_imu_cam1 = np.matmul(T_imu_cam0, T_cam0_cam1)
-    gt_pose_cam1 = Pose(data_dir+'gt_imu.csv', T_imu_cam1)
+    gt_pose_cam1 = Pose(data_path+'gt_imu.csv', T_imu_cam1)
 
     valid_ns, T_cam0_v1, pose_cam1_v1, pose_w_cam1, acc_t_r = [], [], [], [], []
     for i in tqdm(range(len(img_ns))):
@@ -97,17 +97,17 @@ def getPoses(data_dir, save_dir, img_h, ns_per_v):
 
         acc_t_r.append(gt_pose_cam1.getAccAt(img_ns[i]+ns_per_v*(img_h-1)/2))
 
-    ns_path = os.path.join(save_dir, "valid_ns.npy")
+    ns_path = os.path.join(save_path, "valid_ns.npy")
     np.save(ns_path, np.array(valid_ns))
 
-    pose0_path = os.path.join(save_dir, "poses_cam0_v1.npy")
+    pose0_path = os.path.join(save_path, "poses_cam0_v1.npy")
     np.save(pose0_path, np.array(T_cam0_v1))
 
-    pose1w_path = os.path.join(save_dir, "cam1/pose_w_cam1.txt")
+    pose1w_path = os.path.join(save_path, "cam1/pose_w_cam1.txt")
     np.savetxt(pose1w_path, np.array(pose_w_cam1), delimiter=',')
 
-    pose1_path = os.path.join(save_dir, "cam1/poses_cam1_v1.npy")
+    pose1_path = os.path.join(save_path, "cam1/poses_cam1_v1.npy")
     np.save(pose1_path, np.array(pose_cam1_v1))
 
-    acc_path = os.path.join(save_dir, "cam1/acc_t_r.npy")
+    acc_path = os.path.join(save_path, "cam1/acc_t_r.npy")
     np.save(acc_path, np.array(acc_t_r))

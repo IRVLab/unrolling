@@ -17,15 +17,15 @@ v_depths = data_loader.loadValidationDepth()
 depthnet = DepthNet(data_loader.getImgShape())
 
 # checkpoint
-checkpoint_dir = os.path.join(os.getcwd(), "checkpoints")
-if not os.path.exists(checkpoint_dir):
-    os.makedirs(checkpoint_dir)
-ckpt_name = os.path.join(checkpoint_dir, 'model_depth.hdf5')
+checkpoint_path = os.path.join(os.getcwd(), "checkpoints")
+if not os.path.exists(checkpoint_path):
+    os.makedirs(checkpoint_path)
+ckpt_name = os.path.join(checkpoint_path, 'model_depth.hdf5')
 checkpoint = ModelCheckpoint(
     ckpt_name, save_weights_only=True, save_best_only=True)
 
 # tensorboard
-tensorboard_cb = TensorBoard(log_dir='./.logs/depth')
+tensorboard_cb = TensorBoard(log_path='./.logs/depth')
 
 # parameters
 epochs = 200

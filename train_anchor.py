@@ -25,16 +25,16 @@ v_anchors = data_loader.loadValidationAnchor(num_anchor)
 anchornet = AnchorNet(data_loader.getImgShape(), num_anchor)
 
 # checkpoint
-checkpoint_dir = os.path.join(os.getcwd(), "checkpoints/")
-if not os.path.exists(checkpoint_dir):
-    os.makedirs(checkpoint_dir)
+checkpoint_path = os.path.join(os.getcwd(), "checkpoints/")
+if not os.path.exists(checkpoint_path):
+    os.makedirs(checkpoint_path)
 ckpt_name = os.path.join(
-    checkpoint_dir, 'model_anchor{}.hdf5'.format(num_anchor))
+    checkpoint_path, 'model_anchor{}.hdf5'.format(num_anchor))
 checkpoint_cb = ModelCheckpoint(
     ckpt_name, save_weights_only=True, save_best_only=True)
 
 # tensorboard
-tensorboard_cb = TensorBoard(log_dir='./.logs/{}'.format(num_anchor))
+tensorboard_cb = TensorBoard(log_path='./.logs/{}'.format(num_anchor))
 
 # parameters
 epochs = 200

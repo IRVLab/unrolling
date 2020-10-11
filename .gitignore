@@ -3,7 +3,5 @@
 
 .logs/
 .vscode/
-tum_process/pwc_models/
-data/
 checkpoints/
 test_results/

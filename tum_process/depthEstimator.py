@@ -5,7 +5,7 @@ import cv2
 from tqdm import tqdm
 from numpy import linalg as LA
 
-from pwcnet import ModelPWCNet, _DEFAULT_PWCNET_TEST_OPTIONS
+from pwcnet import ModelPWCNet
 
 pwc_net = ModelPWCNet()
 
@@ -74,27 +74,27 @@ def calculateCurDepth(cam0, img0, cam1, img1, T_cam0_v1, v1_lut):
     return depth1
 
 
-def getDepth(save_dir):
-    img0_dir = save_dir+"cam0/images/"
-    img1_dir = save_dir+"cam1/images/"
-    depth1_dir = save_dir+"cam1/depth/"
-    if not os.path.exists(depth1_dir):
-        os.makedirs(depth1_dir)
+def getDepth(save_path):
+    img0_path = save_path+"cam0/images/"
+    img1_path = save_path+"cam1/images/"
+    depth1_path = save_path+"cam1/depth/"
+    if not os.path.exists(depth1_path):
+        os.makedirs(depth1_path)
 
     # Load cameras
-    cam0 = np.load(save_dir+"cam0/camera.npy")
-    cam1 = np.load(save_dir+"cam1/camera.npy")
+    cam0 = np.load(save_path+"cam0/camera.npy")
+    cam1 = np.load(save_path+"cam1/camera.npy")
 
     # Load poses
-    T_cam0_v1 = np.load(save_dir+"poses_cam0_v1.npy")
-    v1_lut = np.load(save_dir+"cam1/v1_lut.npy")
+    T_cam0_v1 = np.load(save_path+"poses_cam0_v1.npy")
+    v1_lut = np.load(save_path+"cam1/v1_lut.npy")
     img_count = T_cam0_v1.shape[0]
 
     # Get depth
     for i in tqdm(range(img_count)):
-        img0 = cv2.imread('{}{}.png'.format(img0_dir, i))
-        img1 = cv2.imread('{}{}.png'.format(img1_dir, i))
+        img0 = cv2.imread('{}{}.png'.format(img0_path, i))
+        img1 = cv2.imread('{}{}.png'.format(img1_path, i))
         depth1 = calculateCurDepth(
             cam0, img0, cam1, img1, T_cam0_v1[i], v1_lut)
-        fname = os.path.join(depth1_dir, str(i))
+        fname = os.path.join(depth1_path, str(i))
         np.save(fname, depth1)

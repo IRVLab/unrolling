@@ -42,21 +42,21 @@ def getGS2RSFlow(depth_rs, cam1, T_cam0_v1, v1_lut):
     return flow_gs2rs
 
 
-def getGS2RSFlows(save_dir, ns_per_v):
-    depth1_dir = save_dir+"cam1/depth/"
-    cam1 = np.load(save_dir+"cam1/camera.npy")
-    flows_gs2rs_dir = save_dir+"cam1/flows_gs2rs/"
-    if not os.path.exists(flows_gs2rs_dir):
-        os.makedirs(flows_gs2rs_dir)
+def getGS2RSFlows(save_path, ns_per_v):
+    depth1_path = save_path+"cam1/depth/"
+    cam1 = np.load(save_path+"cam1/camera.npy")
+    flows_gs2rs_path = save_path+"cam1/flows_gs2rs/"
+    if not os.path.exists(flows_gs2rs_path):
+        os.makedirs(flows_gs2rs_path)
 
     # Load poses
-    T_cam0_v1 = np.load(save_dir+"poses_cam0_v1.npy")
-    v1_lut = np.load(save_dir+"cam1/v1_lut.npy")
-    const_vel_cam1 = np.load(save_dir+"cam1/vel_t_r.npy")
+    T_cam0_v1 = np.load(save_path+"poses_cam0_v1.npy")
+    v1_lut = np.load(save_path+"cam1/v1_lut.npy")
+    const_vel_cam1 = np.load(save_path+"cam1/vel_t_r.npy")
 
     img_count = T_cam0_v1.shape[0]
     for i in tqdm(range(img_count)):
-        depth1 = np.load('{}{}.npy'.format(depth1_dir, i))
+        depth1 = np.load('{}{}.npy'.format(depth1_path, i))
         flow_gs2rs = getGS2RSFlow(depth1, cam1, T_cam0_v1[i], v1_lut)
-        gs2rs_name = os.path.join(flows_gs2rs_dir, str(i))
+        gs2rs_name = os.path.join(flows_gs2rs_path, str(i))
         np.save(gs2rs_name, flow_gs2rs)

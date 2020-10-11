@@ -21,7 +21,7 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 
 _DEFAULT_PWCNET_TEST_OPTIONS = {
-    'ckpt_path': 'pwc_models/sintel_gray_weights/pwcnet.sintel_gray.ckpt-54000',
+    'ckpt_path': '/mnt/data2/jiawei/unrolling/sintel_gray_weights/pwcnet.sintel_gray.ckpt-54000',
     'controller': '/device:CPU:0',
     'batch_size': 1,
     'pyr_lvls': 6,

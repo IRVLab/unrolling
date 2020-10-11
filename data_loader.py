@@ -9,40 +9,57 @@ from numpy import linalg as LA
 
 class dataLoader():
     def __init__(self):
+        data_path = '/mnt/data2/jiawei/unrolling/data/'
         self.trans_weight = 0.3
-        self.inverse_depth = False
         self.step = 1
-        data_path = os.path.join(os.getcwd(), "data/")
-        seqs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        num_seqs = 10
+        test_seq = 2
 
         # get training paths
         self.img_paths, self.flow_paths, self.depth_paths = [], [], []
         self.accs = np.empty((0, 6))
-        for seq in seqs:
-            data_dir = os.path.join(data_path, 'seq'+str(seq))
-            cur_img_count = os.listdir(
-                os.path.join(data_dir, "cam1/flows_gs2rs/"))
-            for fi in range(len(cur_img_count)):
+        for seq in range(1, num_seqs+1):
+            seq_path = os.path.join(data_path, 'seq'+str(seq))
+            cur_img_count = len(os.listdir(
+                os.path.join(seq_path, "cam1/flows_gs2rs/")))
+            for fi in range(cur_img_count):
                 self.img_paths.append(os.path.join(
-                    data_dir, "cam1/images/", str(fi)+'.png'))
+                    seq_path, "cam1/images/", str(fi)+'.png'))
                 self.flow_paths.append(os.path.join(
-                    data_dir, "cam1/flows_gs2rs/", str(fi)+'.npy'))
+                    seq_path, "cam1/flows_gs2rs/", str(fi)+'.npy'))
                 self.depth_paths.append(os.path.join(
-                    data_dir, "cam1/depth/", str(fi)+'.npy'))
+                    seq_path, "cam1/depth/", str(fi)+'.npy'))
 
-            cur_accs = np.load(os.path.join(data_dir, "cam1/acc_t_r.npy"))
+            cur_accs = np.load(os.path.join(seq_path, "cam1/acc_t_r.npy"))
             self.accs = np.concatenate((self.accs, cur_accs))
 
         self.anchors = np.empty((0, self.getImgShape()[0], 6))
-        for seq in seqs:
-            data_dir = os.path.join(data_path, 'seq'+str(seq))
+        for seq in range(1, num_seqs+1):
+            seq_path = os.path.join(data_path, 'seq'+str(seq))
             cur_anchors = np.load(os.path.join(
-                data_dir, "cam1/poses_cam1_v1.npy"))
+                seq_path, "cam1/poses_cam1_v1.npy"))
             self.anchors = np.concatenate((self.anchors, cur_anchors))
 
-        self.train_idx = np.load("data/train_idx.npy")
-        self.val_idx = np.load("data/val_idx.npy")
-        self.test_idx = np.load("data/test_idx.npy")
+        # indices
+        self.train_idx = np.load(os.path.join(data_path, 'train_idx.npy'))
+        self.val_idx = np.load(os.path.join(data_path, 'val_idx.npy'))
+        self.test_idx = np.load(os.path.join(data_path, 'test_idx.npy'))
+        
+        # seq2 data for ground-truth verification
+        seq_img_start = 0
+        for seq in range(1, test_seq):
+            seq_path = os.path.join(data_path, 'seq'+str(seq))
+            cur_img_count = len(os.listdir(
+                os.path.join(seq_path, "cam1/flows_gs2rs/")))
+            seq_img_start += cur_img_count
+        seq_path = os.path.join(data_path, 'seq'+str(test_seq))
+        seq_img_count = len(os.listdir(
+            os.path.join(seq_path, "cam1/flows_gs2rs/")))
+        self.seq_idx = np.arange(
+            seq_img_start, seq_img_start+seq_img_count)
+        
+        # camera parameters
+        self.cam = np.load(os.path.join(data_path, 'seq1/cam1/camera.npy'))
 
     def getImgShape(self):
         img = cv2.imread(self.img_paths[0], 0)
@@ -68,6 +85,9 @@ class dataLoader():
     def loadTestingImg(self, grayscale=False):
         return self.loadImg(self.test_idx, grayscale)
 
+    def loadSeqImg(self, grayscale=False):
+        return self.loadImg(self.seq_idx, grayscale)
+
     def loadDepth(self, idx):
         depths = []
         for i in range(0, idx.shape[0], self.step):
@@ -75,8 +95,6 @@ class dataLoader():
             depth = np.expand_dims(depth, -1)
             depths.append(depth)
         depths = np.array(depths)
-        if self.inverse_depth:
-            depths = np.reciprocal(depths)
         return depths
 
     def loadTrainingDepth(self):
@@ -87,6 +105,9 @@ class dataLoader():
 
     def loadTestingDepth(self):
         return self.loadDepth(self.test_idx)
+
+    def loadSeqDepth(self):
+        return self.loadDepth(self.seq_idx)
 
     def loadFlow(self, idx):
         flows = []
@@ -104,6 +125,9 @@ class dataLoader():
 
     def loadTestingFlow(self):
         return self.loadFlow(self.test_idx)
+
+    def loadSeqFlow(self):
+        return self.loadFlow(self.seq_idx)
 
     def loadAnchor(self, idx, num_anchor):
         anchors = []
@@ -127,11 +151,20 @@ class dataLoader():
     def loadTestingAnchor(self, num_anchor):
         return self.loadAnchor(self.test_idx, num_anchor)
 
-    def loadTestingAcceleration(self):
+    def loadSeqAnchor(self, num_anchor):
+        return self.loadAnchor(self.seq_idx, num_anchor)
+
+    def loadAcceleration(self, idx):
         accs = []
-        for i in range(0, self.test_idx.shape[0], self.step):
-            acc = self.accs[self.test_idx[i]]
+        for i in range(0, idx.shape[0], self.step):
+            acc = self.accs[idx[i]]
             at = LA.norm(acc[:3])
             ar = LA.norm(acc[3:])
             accs.append(at*self.trans_weight+ar)
         return np.array(accs)
+
+    def loadTestingAcceleration(self):
+        return self.loadAcceleration(self.test_idx)
+
+    def loadSeqAcceleration(self):
+        return self.loadAcceleration(self.seq_idx)
