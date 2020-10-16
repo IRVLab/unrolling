@@ -45,9 +45,7 @@ for i in tqdm(range(total_count)):
     flow_gt = flows[i]
 
     if num_anchor > 0:
-        anchors_t_r = np.reshape(anchors[i], (-1, 6))
-        anchors_t_r[:, :3] = anchors_t_r[:, :3] / data_loader.trans_weight
-        flow = rectifier.getGS2RSFlow(depths[i], data_loader.cam, anchors_t_r)
+        flow = rectifier.getGS2RSFlow(depths[i], data_loader.cam, anchors[i])
     else:
         flow = flow_gt
 

@@ -9,7 +9,7 @@ import pandas as pd
 
 class rectifier:
     def getGS2RSFlow(depth_rs, cam, anchors_t_r):
-        num_anchor = len(anchors_t_r)
+        num_anchor = int(anchors_t_r.shape[0] / 6)
         h, w = depth_rs.shape[:2]
         flow_gs2rs = np.empty([h, w, 2], dtype=np.float32)
         flow_gs2rs[:] = np.nan
@@ -17,8 +17,9 @@ class rectifier:
         tm = np.arange(num_anchor+1) / num_anchor
         ts, rs = [[0, 0, 0]], [[0, 0, 0]]
         for i in range(num_anchor):
-            ts.append(list(anchors_t_r[i][:3]))
-            rs.append(list(anchors_t_r[i][3:]))
+            ts.append(list(anchors_t_r[(3*i):(3*i+3)]))
+            rs.append(
+                list(anchors_t_r[(3*num_anchor+3*i):(3*num_anchor+3*i+3)]))
         t_spline = interpolate.CubicSpline(tm, ts)
         R_spline = RotationSpline(tm, Rotation.from_rotvec(rs))
 

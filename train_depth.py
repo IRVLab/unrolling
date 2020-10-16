@@ -25,7 +25,7 @@ checkpoint = ModelCheckpoint(
     ckpt_name, save_weights_only=True, save_best_only=True)
 
 # tensorboard
-tensorboard_cb = TensorBoard(log_path='./.logs/depth')
+tensorboard_cb = TensorBoard(log_dir='./.logs/depth')
 
 # parameters
 epochs = 200
@@ -34,6 +34,7 @@ lr = 1e-4
 decay = 9 / (epochs * imgs.shape[0] / batch_size)  # decay by 0.1 at the end
 
 # training
-depthnet.model.compile(optimizer=Adam(lr=lr, decay=decay), loss=depthnet.depthLoss)
+depthnet.model.compile(optimizer=Adam(
+    lr=lr, decay=decay), loss=depthnet.depthLoss)
 depthnet.model.fit(imgs, depths, validation_data=(v_imgs, v_depths), batch_size=batch_size,
-                epochs=epochs, callbacks=[checkpoint, tensorboard_cb])
+                   epochs=epochs, callbacks=[checkpoint, tensorboard_cb])

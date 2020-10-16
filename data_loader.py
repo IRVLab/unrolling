@@ -10,7 +10,6 @@ from numpy import linalg as LA
 class dataLoader():
     def __init__(self):
         data_path = '/mnt/data2/jiawei/unrolling/data/'
-        self.trans_weight = 0.3
         self.step = 1
         num_seqs = 10
         test_seq = 2
@@ -44,7 +43,7 @@ class dataLoader():
         self.train_idx = np.load(os.path.join(data_path, 'train_idx.npy'))
         self.val_idx = np.load(os.path.join(data_path, 'val_idx.npy'))
         self.test_idx = np.load(os.path.join(data_path, 'test_idx.npy'))
-        
+
         # seq2 data for ground-truth verification
         seq_img_start = 0
         for seq in range(1, test_seq):
@@ -57,7 +56,7 @@ class dataLoader():
             os.path.join(seq_path, "cam1/flows_gs2rs/")))
         self.seq_idx = np.arange(
             seq_img_start, seq_img_start+seq_img_count)
-        
+
         # camera parameters
         self.cam = np.load(os.path.join(data_path, 'seq1/cam1/camera.npy'))
 
@@ -132,13 +131,13 @@ class dataLoader():
     def loadAnchor(self, idx, num_anchor):
         anchors = []
         for i in range(0, idx.shape[0], self.step):
-            anchors_i = np.empty((num_anchor, 6))
+            anchors_i = np.empty((6*num_anchor))
             for ai in range(1, num_anchor+1):
                 cur_anchor = self.anchors[idx[i]][int(
                     ai*self.getImgShape()[0]/num_anchor+0.5)-1]
-                cur_anchor[:3] = self.trans_weight*cur_anchor[:3]
-                anchors_i[ai-1] = cur_anchor
-            anchors.append(anchors_i.flatten())
+                anchors_i[(3*(ai-1)):(3*ai)] = cur_anchor[:3]
+                anchors_i[(3*num_anchor+3*(ai-1)):(3*num_anchor+3*ai)] = cur_anchor[3:]
+            anchors.append(anchors_i)
         anchors = np.array(anchors)
         return anchors
 
@@ -160,7 +159,7 @@ class dataLoader():
             acc = self.accs[idx[i]]
             at = LA.norm(acc[:3])
             ar = LA.norm(acc[3:])
-            accs.append(at*self.trans_weight+ar)
+            accs.append(0.3*at+ar)
         return np.array(accs)
 
     def loadTestingAcceleration(self):

@@ -58,11 +58,8 @@ for i in tqdm(range(total_count)):
     if num_anchor > 0:
         depth_pred = depthnet.model.predict(img_input)[0]
         anchor_pred = anchornet.model.predict(img_input_rgb)[0]
-        anchors_pred_t_r = np.reshape(anchor_pred, (-1, 6))
-        anchors_pred_t_r[:, :3] = anchors_pred_t_r[:, :3] / \
-            data_loader.trans_weight
         flow_pred = rectifier.getGS2RSFlow(
-            depth_pred, data_loader.cam, anchors_pred_t_r)
+            depth_pred, data_loader.cam, anchor_pred)
     else:
         flow_pred = np.zeros_like(flow_gt)
 
