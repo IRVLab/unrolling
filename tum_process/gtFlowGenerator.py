@@ -52,7 +52,6 @@ def getGS2RSFlows(save_path, ns_per_v):
     # Load poses
     T_cam0_v1 = np.load(save_path+"poses_cam0_v1.npy")
     v1_lut = np.load(save_path+"cam1/v1_lut.npy")
-    const_vel_cam1 = np.load(save_path+"cam1/vel_t_r.npy")
 
     img_count = T_cam0_v1.shape[0]
     for i in tqdm(range(img_count)):

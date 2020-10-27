@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 import os
+import shutil
 import numpy as np
 
 from stereoRectifier import stereoRectify, stereoRemap
@@ -34,6 +35,15 @@ for seq in seqs:
 
     print('Getting Unrolling Flow...')
     getGS2RSFlows(seq_save_path, ns_per_v)
+
+    # clean up
+    cam0_folder = os.path.join(seq_save_path, 'cam0/')
+    shutil.rmtree(cam0_folder) if os.path.exists(cam0_folder) else None
+    tmp_files = ['poses_cam0_v1.npy', 'valid_ns.npy',
+                 'cam1/valid_ns.npy', 'cam1/v1_lut.npy', 'cam1/stereo_map.npy']
+    for file in tmp_files:
+        file_path = os.path.join(seq_save_path, file)
+        os.remove(file_path) if os.path.exists(file_path) else None
 
 # randomly pick 80%/20% data for training/testing
 total_img_count = 0

@@ -9,9 +9,9 @@ from model.anchornet import AnchorNet
 
 # read num_anchor from command line
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_anchor', help='Number of anchors to predict')
+parser.add_argument('--anchor', help='Number of anchors to predict')
 args = parser.parse_args()
-num_anchor = int(args.num_anchor)
+num_anchor = int(args.anchor)
 print('Number of anchors to predict: {}'.format(num_anchor))
 
 # load data

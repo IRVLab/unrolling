@@ -10,11 +10,11 @@ from rectifier import rectifier
 
 # read num_anchor from command line
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_anchor', help='Number of anchors to predict')
+parser.add_argument('--anchor', help='Number of anchors to predict')
 parser.add_argument(
     '--rectify_img', help='Whether to rectify images', default=0)
 args = parser.parse_args()
-num_anchor = int(args.num_anchor)
+num_anchor = int(args.anchor)
 print('Number of anchors: {}'.format(num_anchor))
 rectify_img = True if int(args.rectify_img) > 0 else False
 print('Rectify image: {}'.format(rectify_img))

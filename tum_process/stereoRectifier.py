@@ -79,5 +79,5 @@ def stereoRemap(data_path, save_path):
                 '{}cam{}/images/{}.png'.format(data_path, cam_i, valid_ns[i]))
             img_rect = cv2.remap(
                 img, maps[cam_i][0], maps[cam_i][1], cv2.INTER_LINEAR)
-            save_path = '{}cam{}/images/{}.png'.format(save_path, cam_i, i)
-            cv2.imwrite(save_path, img_rect)
+            save_file = '{}cam{}/images/{}.png'.format(save_path, cam_i, i)
+            cv2.imwrite(save_file, img_rect)

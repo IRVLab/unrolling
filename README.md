@@ -21,17 +21,17 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 2. Training (modify **data_path** in *data_loader.py* to the **save_path** or the **processed data**)
 ```
 python3 -m train_depth
-python3 -m train_anchor --num_anchor=1
-python3 -m train_anchor --num_anchor=2
-python3 -m train_anchor --num_anchor=4
+python3 -m train_anchor --anchor=1
+python3 -m train_anchor --anchor=2
+python3 -m train_anchor --anchor=4
 ...
 ```
 
 3. Testing
 ```
-python3 -m test  --num_anchor=1
-python3 -m test  --num_anchor=2
-python3 -m test  --num_anchor=4 --rectify_img=1
+python3 -m test  --anchor=1
+python3 -m test  --anchor=2
+python3 -m test  --anchor=4 --rectify_img=1
 ...
 ```
 

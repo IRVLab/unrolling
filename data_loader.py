@@ -129,17 +129,21 @@ class dataLoader():
         return self.loadFlow(self.seq_idx)
 
     def loadAnchor(self, idx, num_anchor):
+        anchor_idx = []
+        for ai in range(1, num_anchor+1):
+            anchor_idx.append(int(ai*self.getImgShape()[0]/num_anchor+0.5)-1)
+
         anchors = []
         for i in range(0, idx.shape[0], self.step):
-            anchors_i = np.empty((6*num_anchor))
-            for ai in range(1, num_anchor+1):
-                cur_anchor = self.anchors[idx[i]][int(
-                    ai*self.getImgShape()[0]/num_anchor+0.5)-1]
-                anchors_i[(3*(ai-1)):(3*ai)] = cur_anchor[:3]
-                anchors_i[(3*num_anchor+3*(ai-1)):(3*num_anchor+3*ai)] = cur_anchor[3:]
-            anchors.append(anchors_i)
+            anchors.append(self.anchors[idx[i]][anchor_idx].flatten())
         anchors = np.array(anchors)
-        return anchors
+        # rearrange to [t0, t1, ..., r1, r2] for the weight in the loss function
+        anchors_t_r = np.empty_like(anchors)
+        for ai in range(num_anchor):
+            anchors_t_r[:, (3*ai):(3*ai+3)] = anchors[:, (6*ai):(6*ai+3)]
+            anchors_t_r[:, (3*num_anchor+3*ai):(3*num_anchor +
+                                                3*ai+3)] = anchors[:, (6*ai+3):(6*ai+6)]
+        return anchors_t_r
 
     def loadTrainingAnchor(self, num_anchor):
         return self.loadAnchor(self.train_idx, num_anchor)

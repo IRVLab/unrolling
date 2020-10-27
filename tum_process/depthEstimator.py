@@ -62,7 +62,7 @@ def calculateCurDepth(cam0, img0, cam1, img1, T_cam0_v1, v1_lut):
     depth1 = np.empty([h, w])
     depth1[:] = np.nan
 
-    flow10 = getFlowBD(img1, img0, 'Rolling Stereo Match')
+    flow10 = getFlowBD(img1, img0, 'Match')
     for v1 in range(h):
         for u1 in range(w):
             fu, fv = flow10[v1, u1, :]
