@@ -23,6 +23,11 @@ class AnchorNet():
             resnet = ResNet34(input_shape=(im_shape[0], im_shape[1], 3),
                               weights='imagenet', include_top=False)
             input, features = resnet.input, resnet.output
+        elif base == 'ResNet50':
+            ResNet50, _ = Classifiers.get('resnet50')
+            resnet = ResNet50(input_shape=(im_shape[0], im_shape[1], 3),
+                              weights='imagenet', include_top=False)
+            input, features = resnet.input, resnet.output
         elif base == 'VGG16':
             vgg = VGG16(input_shape=(im_shape[0], im_shape[1], 3),
                         include_top=False, weights='imagenet')
