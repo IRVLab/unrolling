@@ -1,9 +1,25 @@
+# Learning Rolling Shutter Correction from Real Data without Camera Motion Assumption
+# Copyright (C) <2020> <Jiawei Mo, Md Jahidul Islam, Junaed Sattar>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 from __future__ import print_function, division
 import numpy as np
 import cv2
 from numpy import linalg as LA
 from scipy.spatial.transform import Rotation, RotationSpline
-from scipy import interpolate
+from scipy.interpolate import CubicSpline
 import pandas as pd
 
 
@@ -20,7 +36,7 @@ class rectifier:
             ts.append(list(anchors_t_r[(3*i):(3*i+3)]))
             rs.append(
                 list(anchors_t_r[(3*num_anchor+3*i):(3*num_anchor+3*i+3)]))
-        t_spline = interpolate.CubicSpline(tm, ts)
+        t_spline = CubicSpline(tm, ts)
         R_spline = RotationSpline(tm, Rotation.from_rotvec(rs))
 
         K = np.array([[cam[0], 0, cam[2]], [0, cam[1], cam[3]], [0, 0, 1]])
