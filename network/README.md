@@ -24,7 +24,7 @@
     python3 train_rsdepthnet.py
     python3 train_rsposenet.py
     ```
-    or download the our trained [checkpoints](https://drive.google.com/file/d/1CMi2j5-aU4YCWay3ebMWkr3ClFqPsSSs/view?usp=sharing).
+    or download the our trained [checkpoints](https://drive.google.com/file/d/1HFhwY82-sKDElhtIzpreYe-fVlgcrd9h/view?usp=sharing).
 
 * Testing
     ```
